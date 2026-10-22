@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<title>세진상사 - 거래명세서 관리 시스템</title>
+<style>
+:root {
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --border: #e2e8f0;
+  --text: #1e293b;
+  --text-light: #64748b;
+  --success: #16a34a;
+  --danger: #dc2626;
+  --warning: #f59e0b;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+/* Navigation */
+.nav { background: var(--primary); color: white; padding: 0; display: flex; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.nav-brand { padding: 12px 20px; font-size: 16px; font-weight: 700; white-space: nowrap; border-right: 1px solid rgba(255,255,255,0.2); }
+.nav-tabs { display: flex; flex: 1; }
+.nav-tab { padding: 14px 24px; cursor: pointer; font-size: 14px; transition: background 0.2s; border: none; background: none; color: rgba(255,255,255,0.8); font-family: inherit; }
+.nav-tab:hover { background: rgba(255,255,255,0.1); color: white; }
+.nav-tab.active { background: rgba(255,255,255,0.2); color: white; font-weight: 600; }
+
+/* Layout */
+.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+.page { display: none; }
+.page.active { display: block; }
+
+/* Cards */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.card-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--primary); }
+
+/* Forms */
+.form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 12px; font-weight: 600; color: var(--text-light); }
+.form-group input, .form-group select, .form-group textarea {
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 14px; font-family: inherit; transition: border-color 0.2s;
+}
+.form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+
+/* Buttons */
+.btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-success { background: var(--success); color: white; }
+.btn-success:hover { background: #15803d; }
+.btn-danger { background: var(--danger); color: white; }
+.btn-danger:hover { background: #b91c1c; }
+.btn-outline { background: white; color: var(--text); border: 1px solid var(--border); }
+.btn-outline:hover { background: var(--bg); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-lg { padding: 12px 24px; font-size: 15px; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+th { background: #f1f5f9; font-weight: 600; font-size: 12px; color: var(--text-light); text-transform: uppercase; position: sticky; top: 0; }
+tr:hover { background: #f8fafc; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+
+/* Autocomplete */
+.autocomplete-wrapper { position: relative; }
+.autocomplete-list {
+  position: absolute; top: 100%; left: 0; right: 0; background: white;
+  border: 1px solid var(--border); border-radius: 6px; max-height: 200px;
+  overflow-y: auto; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none;
+}
+.autocomplete-list.show { display: block; }
+.autocomplete-item { padding: 8px 12px; cursor: pointer; font-size: 13px; }
+.autocomplete-item:hover, .autocomplete-item.selected { background: #eff6ff; color: var(--primary); }
+.autocomplete-item .sub { font-size: 11px; color: var(--text-light); }
+
+/* Statement items table */
+.stmt-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.stmt-table th { background: var(--primary); color: white; padding: 8px; font-size: 12px; text-align: center; }
+.stmt-table td { padding: 4px; border: 1px solid var(--border); }
+.stmt-table input { width: 100%; padding: 6px 8px; border: 1px solid transparent; font-size: 13px; font-family: inherit; text-align: center; background: transparent; }
+.stmt-table input:focus { border-color: var(--primary); outline: none; background: white; }
+.stmt-table input.text-right { text-align: right; }
+.stmt-table .row-num { width: 40px; text-align: center; color: var(--text-light); font-size: 12px; }
+.stmt-table .btn-remove { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 16px; padding: 4px; }
+.stmt-table .btn-remove:hover { background: #fee2e2; border-radius: 4px; }
+
+/* Summary */
+.summary-row { display: flex; justify-content: flex-end; gap: 24px; margin-top: 16px; padding: 16px; background: #f1f5f9; border-radius: 8px; }
+.summary-item { text-align: right; }
+.summary-item .label { font-size: 12px; color: var(--text-light); }
+.summary-item .value { font-size: 20px; font-weight: 700; color: var(--primary); }
+
+/* History list */
+.history-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; transition: all 0.2s; cursor: pointer; }
+.history-item:hover { border-color: var(--primary); background: #f8fafc; }
+.history-info { flex: 1; }
+.history-info .date { font-weight: 700; font-size: 15px; }
+.history-info .customer { color: var(--text-light); font-size: 13px; margin-top: 2px; }
+.history-info .items-preview { font-size: 12px; color: var(--text-light); margin-top: 4px; }
+.history-amount { font-size: 18px; font-weight: 700; color: var(--primary); }
+.history-actions { display: flex; gap: 8px; margin-left: 16px; }
+
+/* Search */
+.search-bar { display: flex; gap: 12px; margin-bottom: 16px; align-items: center; }
+.search-bar input { flex: 1; padding: 10px 16px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+.search-bar input:focus { outline: none; border-color: var(--primary); }
+
+/* Badges */
+.badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.badge-blue { background: #dbeafe; color: #1d4ed8; }
+.badge-green { background: #dcfce7; color: #16a34a; }
+
+/* Modal */
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 200; display: none; align-items: center; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal { background: white; border-radius: 12px; padding: 24px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
+.modal-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
+/* Stats */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.stat-card { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+.stat-card .stat-label { font-size: 12px; color: var(--text-light); font-weight: 600; }
+.stat-card .stat-value { font-size: 24px; font-weight: 700; margin-top: 4px; }
+
+/* Print styles */
+@media print {
+  body * { visibility: hidden; }
+  #printArea, #printArea * { visibility: visible; }
+  #printArea { position: absolute; left: 0; top: 0; width: 210mm; }
+  .nav, .no-print { display: none !important; }
+}
+
+/* Print layout */
+.print-stmt { width: 210mm; padding: 10mm; font-family: 'Malgun Gothic', sans-serif; }
+.print-stmt .title { text-align: center; font-size: 22px; font-weight: 700; letter-spacing: 8px; margin-bottom: 16px; border-bottom: 3px double #000; padding-bottom: 8px; }
+.print-stmt .header { display: flex; justify-content: space-between; margin-bottom: 12px; }
+.print-stmt .header-left { flex: 1; }
+.print-stmt .header-right { flex: 1; border: 1px solid #000; padding: 8px; }
+.print-stmt .header-right table td { padding: 4px 8px; border: none; font-size: 13px; }
+.print-stmt .items-table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+.print-stmt .items-table th, .print-stmt .items-table td { border: 1px solid #000; padding: 6px 8px; font-size: 12px; }
+.print-stmt .items-table th { background: #f0f0f0; }
+.print-stmt .totals { display: flex; justify-content: space-between; margin-top: 8px; font-size: 14px; }
+.print-stmt .footer { margin-top: 20px; font-size: 12px; color: #666; }
+.print-stmt .stamp { text-align: right; margin-top: 12px; }
+
+/* Toast */
+.toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; background: #1e293b; color: white; border-radius: 8px; font-size: 14px; z-index: 300; opacity: 0; transform: translateY(20px); transition: all 0.3s; }
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.success { background: var(--success); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .form-row { flex-direction: column; }
+  .nav-tab { padding: 12px 16px; font-size: 13px; }
+  .nav-brand { padding: 12px; font-size: 14px; }
+  .container { padding: 12px; }
+  .stats { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">세진상사</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-page="write">거래명세서 작성</button>
+    <button class="nav-tab" data-page="history">발행 이력</button>
+    <button class="nav-tab" data-page="items">품목 관리</button>
+    <button class="nav-tab" data-page="customers">거래처 관리</button>
+    <button class="nav-tab" data-page="settings">설정</button>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- 거래명세서 작성 -->
+  <div id="page-write" class="page active">
+    <div class="card">
+      <div class="card-title">거래명세서 작성</div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label>매출번호</label>
+          <input type="text" id="stmt-number" readonly style="background:#f1f5f9">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>작성일자</label>
+          <input type="date" id="stmt-date">
+        </div>
+        <div class="form-group" style="flex:2">
+          <label>거래처 (공급받는 자)</label>
+          <div class="autocomplete-wrapper">
+            <input type="text" id="stmt-customer" placeholder="거래처명 입력..." autocomplete="off">
+            <div class="autocomplete-list" id="customer-autocomplete"></div>
+          </div>
+        </div>
+        <input type="hidden" id="stmt-customer-id">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">품목 입력</div>
+      <table class="stmt-table">
+        <thead>
+          <tr>
+            <th style="width:40px">No</th>
+            <th style="width:80px">품번</th>
+            <th style="width:200px">품명</th>
+            <th style="width:100px">규격</th>
+            <th style="width:60px">단위</th>
+            <th style="width:60px">수량</th>
+            <th style="width:110px">단가</th>
+            <th style="width:110px">금액</th>
+            <th style="width:100px">비고</th>
+            <th style="width:30px"></th>
+          </tr>
+        </thead>
+        <tbody id="stmt-items"></tbody>
+      </table>
+      <div style="margin-top:8px">
+        <button class="btn btn-outline btn-sm" onclick="addItemRow()">+ 행 추가</button>
+      </div>
+
+      <div class="summary-row">
+        <div class="summary-item">
+          <div class="label">공급가액</div>
+          <div class="value" id="supply-total">0</div>
+        </div>
+        <div class="summary-item">
+          <div class="label">세액 (10%)</div>
+          <div class="value" id="tax-total">0</div>
+        </div>
+        <div class="summary-item">
+          <div class="label">합계</div>
+          <div class="value" id="grand-total">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:12px; justify-content:center; margin-top:20px" class="no-print">
+      <button class="btn btn-primary btn-lg" onclick="saveStatement()">저장</button>
+      <button class="btn btn-success btn-lg" onclick="saveAndPrint()">저장 후 인쇄</button>
+      <button class="btn btn-lg" style="background:#FEE500;color:#191919" onclick="saveAndShare()">카톡 공유</button>
+      <button class="btn btn-lg" style="background:#4285f4;color:white" onclick="saveAndEmail()">메일 발송</button>
+      <button class="btn btn-outline btn-lg" onclick="resetForm()">초기화</button>
+    </div>
+  </div>
+
+  <!-- 발행 이력 -->
+  <div id="page-history" class="page">
+    <div class="stats" id="history-stats"></div>
+    <div class="card">
+      <div class="card-title">발행 이력 관리</div>
+      <div class="search-bar">
+        <input type="text" id="history-search" placeholder="거래처명, 품목명으로 검색..." oninput="searchHistory()">
+        <input type="text" id="history-number" placeholder="매출번호 검색..." oninput="searchHistory()" style="max-width:200px">
+        <input type="month" id="history-month" onchange="searchHistory()">
+        <button class="btn btn-outline" onclick="clearHistorySearch()">전체보기</button>
+      </div>
+      <div id="history-list"></div>
+    </div>
+  </div>
+
+  <!-- 품목 관리 -->
+  <div id="page-items" class="page">
+    <div class="card">
+      <div class="card-title">품목 DB 관리</div>
+      <div class="form-row" style="margin-bottom:16px">
+        <div class="form-group" style="flex:1">
+          <label>품번</label>
+          <input type="text" id="item-partno" placeholder="품번 (선택)">
+        </div>
+        <div class="form-group" style="flex:2">
+          <label>품명</label>
+          <input type="text" id="item-name" placeholder="품명 입력">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>규격</label>
+          <input type="text" id="item-spec" placeholder="규격">
+        </div>
+        <div class="form-group" style="flex:0.5">
+          <label>단위</label>
+          <input type="text" id="item-unit" value="EA" placeholder="단위">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>기본 단가</label>
+          <input type="number" id="item-price" placeholder="단가">
+        </div>
+        <div class="form-group" style="justify-content:flex-end">
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" onclick="saveItem()">품목 추가</button>
+        </div>
+      </div>
+      <input type="hidden" id="item-edit-id">
+      <div class="search-bar">
+        <input type="text" id="item-search" placeholder="품목 검색..." oninput="renderItems()">
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>품번</th>
+            <th>품명</th>
+            <th>규격</th>
+            <th>단위</th>
+            <th class="text-right">기본 단가</th>
+            <th class="text-right">최근 단가</th>
+            <th class="text-center">사용횟수</th>
+            <th class="text-center">관리</th>
+          </tr>
+        </thead>
+        <tbody id="items-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 거래처 관리 -->
+  <div id="page-customers" class="page">
+    <div class="card">
+      <div class="card-title">거래처 관리</div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label>거래처명</label>
+          <input type="text" id="cust-name" placeholder="거래처명">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>대표자</label>
+          <input type="text" id="cust-rep" placeholder="대표자">
+        </div>
+        <div class="form-group" style="flex:1.5">
+          <label>사업자번호</label>
+          <input type="text" id="cust-bizno" placeholder="000-00-00000">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:3">
+          <label>주소</label>
+          <input type="text" id="cust-address" placeholder="주소">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>전화번호</label>
+          <input type="text" id="cust-phone" placeholder="전화번호">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>FAX</label>
+          <input type="text" id="cust-fax" placeholder="FAX">
+        </div>
+        <div class="form-group" style="flex:1.5">
+          <label>이메일</label>
+          <input type="email" id="cust-email" placeholder="이메일 주소">
+        </div>
+      </div>
+      <div id="cust-contacts">
+        <div class="form-row" style="margin-top:8px; align-items:center;">
+          <div class="form-group" style="flex:1">
+            <label>담당자1 이름</label>
+            <input type="text" id="cust-contact1-name" placeholder="이름">
+          </div>
+          <div class="form-group" style="flex:1.5">
+            <label>담당자1 전화번호</label>
+            <input type="text" id="cust-contact1-phone" placeholder="010-0000-0000">
+          </div>
+          <div class="form-group" style="flex:1">
+            <label>담당자2 이름</label>
+            <input type="text" id="cust-contact2-name" placeholder="이름">
+          </div>
+          <div class="form-group" style="flex:1.5">
+            <label>담당자2 전화번호</label>
+            <input type="text" id="cust-contact2-phone" placeholder="010-0000-0000">
+          </div>
+          <div class="form-group" style="flex:1">
+            <label>담당자3 이름</label>
+            <input type="text" id="cust-contact3-name" placeholder="이름">
+          </div>
+          <div class="form-group" style="flex:1.5">
+            <label>담당자3 전화번호</label>
+            <input type="text" id="cust-contact3-phone" placeholder="010-0000-0000">
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <button class="btn btn-primary" onclick="saveCustomer()">거래처 추가</button>
+        <input type="hidden" id="cust-edit-id">
+      </div>
+      <div style="margin-top:16px">
+        <table>
+          <thead>
+            <tr>
+              <th>거래처명</th>
+              <th>대표자</th>
+              <th>사업자번호</th>
+              <th>전화번호</th>
+              <th>이메일</th>
+              <th>담당자</th>
+              <th class="text-center">거래횟수</th>
+              <th class="text-center">관리</th>
+            </tr>
+          </thead>
+          <tbody id="customers-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 설정 -->
+  <div id="page-settings" class="page">
+    <div class="card">
+      <div class="card-title">공급자 정보 (우리 회사)</div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label>상호</label>
+          <input type="text" id="set-company" placeholder="상호명">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>대표자</label>
+          <input type="text" id="set-rep" placeholder="대표자명">
+        </div>
+        <div class="form-group" style="flex:1.5">
+          <label>사업자등록번호</label>
+          <input type="text" id="set-bizno" placeholder="000-00-00000">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:3">
+          <label>주소</label>
+          <input type="text" id="set-address" placeholder="주소">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>전화번호</label>
+          <input type="text" id="set-phone" placeholder="전화번호">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>FAX</label>
+          <input type="text" id="set-fax" placeholder="FAX번호">
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        <button class="btn btn-primary" onclick="saveSettings()">설정 저장</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">이메일 발송 설정 (EmailJS)</div>
+      <p style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
+        <a href="https://www.emailjs.com/" target="_blank">emailjs.com</a>에서 무료 가입 후 아래 정보를 입력하세요. (월 200건 무료)
+      </p>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label>Public Key</label>
+          <input type="text" id="set-emailjs-pubkey" placeholder="EmailJS Public Key">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>Service ID</label>
+          <input type="text" id="set-emailjs-service" placeholder="service_xxxxxxx">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>Template ID</label>
+          <input type="text" id="set-emailjs-template" placeholder="template_xxxxxxx">
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <button class="btn btn-primary" onclick="saveEmailSettings()">이메일 설정 저장</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">데이터 관리</div>
+      <div style="display:flex; gap:12px">
+        <button class="btn btn-outline" onclick="exportAllData()">전체 데이터 백업 (JSON)</button>
+        <button class="btn btn-outline" onclick="document.getElementById('import-file').click()">데이터 복원</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importAllData(event)">
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Print Area (hidden) -->
+<div id="printArea" style="display:none"></div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+<script>
+// ============================================================
+// Firebase Setup
+// ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyCuBpaSws6id-mXcjVb-HCR2gLB9phzKjc",
+  authDomain: "sejin-trade.firebaseapp.com",
+  projectId: "sejin-trade",
+  storageBucket: "sejin-trade.firebasestorage.app",
+  messagingSenderId: "894833891222",
+  appId: "1:894833891222:web:5be5ac15a94df373592fb7"
+};
+
+firebase.initializeApp(firebaseConfig);
+const fsDb = firebase.firestore();
+
+function openDB() {
+  return Promise.resolve();
+}
+
+async function dbGet(store) {
+  const snap = await fsDb.collection(store).get();
+  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+async function dbGetOne(store, id) {
+  const doc = await fsDb.collection(store).doc(String(id)).get();
+  if (!doc.exists) return null;
+  return { id: doc.id, ...doc.data() };
+}
+
+async function dbPut(store, data) {
+  const docId = String(data.id || data.key);
+  await fsDb.collection(store).doc(docId).set(data);
+  return docId;
+}
+
+async function dbAdd(store, data) {
+  const counterRef = fsDb.collection('_counters').doc(store);
+  const counterDoc = await counterRef.get();
+  let nextId = 1;
+  if (counterDoc.exists) {
+    nextId = (counterDoc.data().current || 0) + 1;
+  }
+  await counterRef.set({ current: nextId });
+  data.id = nextId;
+  await fsDb.collection(store).doc(String(nextId)).set(data);
+  return nextId;
+}
+
+async function dbDelete(store, id) {
+  await fsDb.collection(store).doc(String(id)).delete();
+}
+
+// ============================================================
+// Utility
+// ============================================================
+function normalize(s) {
+  return String(s).replace(/[\s㈜㈱\(\)\(\)주]/g, '').toLowerCase();
+}
+
+function fmt(n) {
+  return Number(n || 0).toLocaleString('ko-KR');
+}
+
+function parseNum(s) {
+  return parseInt(String(s).replace(/,/g, ''), 10) || 0;
+}
+
+function today() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type === 'success' ? ' success' : '');
+  setTimeout(() => t.className = 'toast', 2500);
+}
+
+function showModal(html) {
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+}
+
+document.getElementById('modal-overlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+// ============================================================
+// Navigation
+// ============================================================
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('page-' + tab.dataset.page).classList.add('active');
+    if (tab.dataset.page === 'history') loadHistory();
+    if (tab.dataset.page === 'items') renderItems();
+    if (tab.dataset.page === 'customers') renderCustomers();
+  });
+});
+
+// ============================================================
+// Settings
+// ============================================================
+const DEFAULT_SETTINGS = {
+  company: '세 진 상 사',
+  representative: '김  세  인',
+  bizNumber: '511-72-00069',
+  address: '부산광역시 사상구 낙동대로 1062번길 25  (감전동)',
+  phone: '010-5044-6690',
+  fax: '051-987-6690'
+};
+
+async function loadSettings() {
+  let s = await dbGetOne('settings', 'supplier');
+  if (!s) {
+    s = { key: 'supplier', ...DEFAULT_SETTINGS };
+    await dbPut('settings', s);
+  }
+  document.getElementById('set-company').value = s.company || '';
+  document.getElementById('set-rep').value = s.representative || '';
+  document.getElementById('set-bizno').value = s.bizNumber || '';
+  document.getElementById('set-address').value = s.address || '';
+  document.getElementById('set-phone').value = s.phone || '';
+  document.getElementById('set-fax').value = s.fax || '';
+  return s;
+}
+
+async function saveSettings() {
+  const s = {
+    key: 'supplier',
+    company: document.getElementById('set-company').value,
+    representative: document.getElementById('set-rep').value,
+    bizNumber: document.getElementById('set-bizno').value,
+    address: document.getElementById('set-address').value,
+    phone: document.getElementById('set-phone').value,
+    fax: document.getElementById('set-fax').value
+  };
+  await dbPut('settings', s);
+  showToast('설정이 저장되었습니다.', 'success');
+}
+
+// ============================================================
+// Generate Statement Number
+// ============================================================
+async function generateNumber() {
+  const d = new Date();
+  const prefix = d.getFullYear().toString() + String(d.getMonth() + 1).padStart(2, '0');
+  const stmts = await dbGet('statements');
+  const sameMonth = stmts.filter(s => s.number && s.number.startsWith(prefix));
+  const nextSeq = sameMonth.length + 1;
+  return prefix + String(nextSeq).padStart(5, '0');
+}
+
+// ============================================================
+// Items Management
+// ============================================================
+async function saveItem() {
+  const editId = document.getElementById('item-edit-id').value;
+  const data = {
+    partNo: document.getElementById('item-partno').value.trim(),
+    name: document.getElementById('item-name').value.trim(),
+    spec: document.getElementById('item-spec').value.trim(),
+    unit: document.getElementById('item-unit').value.trim() || 'EA',
+    defaultPrice: parseNum(document.getElementById('item-price').value),
+    lastPrice: parseNum(document.getElementById('item-price').value),
+    useCount: 0,
+    updatedAt: new Date().toISOString()
+  };
+  if (!data.name) { showToast('품명을 입력하세요.'); return; }
+
+  if (editId) {
+    const existing = await dbGetOne('items', editId);
+    data.id = existing.id;
+    data.useCount = existing.useCount || 0;
+    data.createdAt = existing.createdAt;
+    await dbPut('items', data);
+    document.getElementById('item-edit-id').value = '';
+    showToast('품목이 수정되었습니다.', 'success');
+  } else {
+    data.createdAt = new Date().toISOString();
+    await dbAdd('items', data);
+    showToast('품목이 추가되었습니다.', 'success');
+  }
+  clearItemForm();
+  renderItems();
+}
+
+function clearItemForm() {
+  ['item-partno', 'item-name', 'item-spec', 'item-price'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('item-unit').value = 'EA';
+  document.getElementById('item-edit-id').value = '';
+}
+
+async function renderItems() {
+  const items = await dbGet('items');
+  const search = normalize(document.getElementById('item-search').value || '');
+  const filtered = items.filter(i =>
+    normalize(i.name).includes(search) ||
+    normalize(i.partNo || '').includes(search) ||
+    normalize(i.spec || '').includes(search)
+  );
+  filtered.sort((a, b) => (b.useCount || 0) - (a.useCount || 0));
+
+  document.getElementById('items-table').innerHTML = filtered.map(i => `
+    <tr>
+      <td>${i.partNo || '-'}</td>
+      <td><strong>${i.name}</strong></td>
+      <td>${i.spec || '-'}</td>
+      <td>${i.unit || 'EA'}</td>
+      <td class="text-right">${fmt(i.defaultPrice)}</td>
+      <td class="text-right">${fmt(i.lastPrice || i.defaultPrice)}</td>
+      <td class="text-center"><span class="badge badge-blue">${i.useCount || 0}회</span></td>
+      <td class="text-center">
+        <button class="btn btn-outline btn-sm" onclick="editItem('${i.id}')">수정</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteItem('${i.id}')">삭제</button>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="8" class="text-center" style="padding:40px;color:var(--text-light)">등록된 품목이 없습니다. 위에서 품목을 추가해주세요.</td></tr>';
+}
+
+async function editItem(id) {
+  const i = await dbGetOne('items', id);
+  document.getElementById('item-edit-id').value = i.id;
+  document.getElementById('item-partno').value = i.partNo || '';
+  document.getElementById('item-name').value = i.name;
+  document.getElementById('item-spec').value = i.spec || '';
+  document.getElementById('item-unit').value = i.unit || 'EA';
+  document.getElementById('item-price').value = i.defaultPrice || '';
+  document.querySelector('#page-items .btn-primary').textContent = '품목 수정';
+  window.scrollTo(0, 0);
+}
+
+async function deleteItem(id) {
+  if (!confirm('이 품목을 삭제하시겠습니까?')) return;
+  await dbDelete('items', id);
+  showToast('품목이 삭제되었습니다.');
+  renderItems();
+}
+
+// ============================================================
+// Customers Management
+// ============================================================
+async function saveCustomer() {
+  const editId = document.getElementById('cust-edit-id').value;
+  const data = {
+    name: document.getElementById('cust-name').value.trim(),
+    representative: document.getElementById('cust-rep').value.trim(),
+    bizNumber: document.getElementById('cust-bizno').value.trim(),
+    address: document.getElementById('cust-address').value.trim(),
+    phone: document.getElementById('cust-phone').value.trim(),
+    fax: document.getElementById('cust-fax').value.trim(),
+    email: document.getElementById('cust-email').value.trim(),
+    contacts: [
+      { name: document.getElementById('cust-contact1-name').value.trim(), phone: document.getElementById('cust-contact1-phone').value.trim() },
+      { name: document.getElementById('cust-contact2-name').value.trim(), phone: document.getElementById('cust-contact2-phone').value.trim() },
+      { name: document.getElementById('cust-contact3-name').value.trim(), phone: document.getElementById('cust-contact3-phone').value.trim() },
+    ].filter(c => c.name || c.phone),
+    updatedAt: new Date().toISOString()
+  };
+  if (!data.name) { showToast('거래처명을 입력하세요.'); return; }
+
+  if (editId) {
+    const existing = await dbGetOne('customers', editId);
+    data.id = existing.id;
+    data.createdAt = existing.createdAt;
+    data.tradeCount = existing.tradeCount || 0;
+    await dbPut('customers', data);
+    document.getElementById('cust-edit-id').value = '';
+    showToast('거래처가 수정되었습니다.', 'success');
+  } else {
+    data.createdAt = new Date().toISOString();
+    data.tradeCount = 0;
+    await dbAdd('customers', data);
+    showToast('거래처가 추가되었습니다.', 'success');
+  }
+  clearCustomerForm();
+  renderCustomers();
+}
+
+function clearCustomerForm() {
+  ['cust-name', 'cust-rep', 'cust-bizno', 'cust-address', 'cust-phone', 'cust-fax', 'cust-email',
+   'cust-contact1-name', 'cust-contact1-phone', 'cust-contact2-name', 'cust-contact2-phone',
+   'cust-contact3-name', 'cust-contact3-phone'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cust-edit-id').value = '';
+  document.querySelector('#page-customers .btn-primary').textContent = '거래처 추가';
+}
+
+async function renderCustomers() {
+  const custs = await dbGet('customers');
+  document.getElementById('customers-table').innerHTML = custs.map(c => `
+    <tr>
+      <td><strong>${c.name}</strong></td>
+      <td>${c.representative || '-'}</td>
+      <td>${c.bizNumber || '-'}</td>
+      <td>${c.phone || '-'}</td>
+      <td>${c.email ? `<a href="https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(c.email)}" target="_blank" style="color:var(--primary);text-decoration:none;" title="Gmail로 보내기">${c.email}</a>` : '-'}</td>
+      <td style="font-size:12px">${(c.contacts || []).map(ct => `${ct.name} ${ct.phone}`).join('<br>') || '-'}</td>
+      <td class="text-center"><span class="badge badge-blue">${c.tradeCount || 0}회</span></td>
+      <td class="text-center">
+        <button class="btn btn-outline btn-sm" onclick="editCustomer('${c.id}')">수정</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCustomer('${c.id}')">삭제</button>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="8" class="text-center" style="padding:40px;color:var(--text-light)">등록된 거래처가 없습니다.</td></tr>';
+}
+
+async function editCustomer(id) {
+  const c = await dbGetOne('customers', id);
+  document.getElementById('cust-edit-id').value = c.id;
+  document.getElementById('cust-name').value = c.name;
+  document.getElementById('cust-rep').value = c.representative || '';
+  document.getElementById('cust-bizno').value = c.bizNumber || '';
+  document.getElementById('cust-address').value = c.address || '';
+  document.getElementById('cust-phone').value = c.phone || '';
+  document.getElementById('cust-fax').value = c.fax || '';
+  document.getElementById('cust-email').value = c.email || '';
+  const contacts = c.contacts || [];
+  for (let i = 0; i < 3; i++) {
+    document.getElementById(`cust-contact${i+1}-name`).value = (contacts[i] && contacts[i].name) || '';
+    document.getElementById(`cust-contact${i+1}-phone`).value = (contacts[i] && contacts[i].phone) || '';
+  }
+  document.querySelector('#page-customers .btn-primary').textContent = '거래처 수정';
+  window.scrollTo(0, 0);
+}
+
+async function deleteCustomer(id) {
+  if (!confirm('이 거래처를 삭제하시겠습니까?')) return;
+  await dbDelete('customers', id);
+  showToast('거래처가 삭제되었습니다.');
+  renderCustomers();
+}
+
+// ============================================================
+// Statement Form - Item Rows
+// ============================================================
+let itemRowCount = 0;
+
+function addItemRow(data) {
+  itemRowCount++;
+  const tbody = document.getElementById('stmt-items');
+  const tr = document.createElement('tr');
+  tr.dataset.row = itemRowCount;
+  const d = data || {};
+  tr.innerHTML = `
+    <td class="row-num">${tbody.children.length + 1}</td>
+    <td><input type="text" value="${d.partNo || ''}" class="partno-input" placeholder="품번"></td>
+    <td class="autocomplete-wrapper">
+      <input type="text" value="${d.name || ''}" class="name-input" placeholder="품명 입력..." autocomplete="off">
+      <div class="autocomplete-list"></div>
+    </td>
+    <td><input type="text" value="${d.spec || ''}" class="spec-input" placeholder="규격"></td>
+    <td><input type="text" value="${d.unit || 'EA'}" class="unit-input text-center"></td>
+    <td><input type="number" value="${d.qty || 1}" class="qty-input text-center" min="1"></td>
+    <td><input type="text" value="${d.price ? fmt(d.price) : ''}" class="price-input text-right" placeholder="단가"></td>
+    <td><input type="text" value="${d.amount ? fmt(d.amount) : ''}" class="amount-input text-right" readonly style="background:transparent;font-weight:600"></td>
+    <td><input type="text" value="${d.note || ''}" class="note-input" placeholder="비고"></td>
+    <td><button class="btn-remove" onclick="removeRow(this)">&times;</button></td>
+  `;
+
+  tbody.appendChild(tr);
+
+  const nameInput = tr.querySelector('.name-input');
+  const acList = tr.querySelector('.autocomplete-list');
+  setupItemAutocomplete(nameInput, acList, tr);
+
+  tr.querySelector('.qty-input').addEventListener('input', () => calcRow(tr));
+  tr.querySelector('.price-input').addEventListener('input', () => calcRow(tr));
+  tr.querySelector('.price-input').addEventListener('focus', function() {
+    this.value = this.value.replace(/,/g, '');
+  });
+  tr.querySelector('.price-input').addEventListener('blur', function() {
+    const v = parseNum(this.value);
+    if (v) this.value = fmt(v);
+  });
+
+  if (!data) nameInput.focus();
+  return tr;
+}
+
+function removeRow(btn) {
+  btn.closest('tr').remove();
+  renumberRows();
+  calcTotals();
+}
+
+function renumberRows() {
+  document.querySelectorAll('#stmt-items tr').forEach((tr, i) => {
+    tr.querySelector('.row-num').textContent = i + 1;
+  });
+}
+
+function calcRow(tr) {
+  const qty = parseInt(tr.querySelector('.qty-input').value) || 0;
+  const price = parseNum(tr.querySelector('.price-input').value);
+  const amount = qty * price;
+  tr.querySelector('.amount-input').value = amount ? fmt(amount) : '';
+  calcTotals();
+}
+
+function calcTotals() {
+  let supply = 0;
+  document.querySelectorAll('#stmt-items tr').forEach(tr => {
+    supply += parseNum(tr.querySelector('.amount-input').value);
+  });
+  const tax = Math.round(supply * 0.1);
+  document.getElementById('supply-total').textContent = fmt(supply);
+  document.getElementById('tax-total').textContent = fmt(tax);
+  document.getElementById('grand-total').textContent = fmt(supply + tax);
+}
+
+// ============================================================
+// Item Autocomplete in Statement
+// ============================================================
+function setupItemAutocomplete(input, list, row) {
+  let allItems = [];
+
+  input.addEventListener('focus', async () => {
+    allItems = await dbGet('items');
+  });
+
+  input.addEventListener('input', () => {
+    const val = normalize(input.value);
+    if (!val) { list.classList.remove('show'); return; }
+    const matches = allItems.filter(i =>
+      normalize(i.name).includes(val) || normalize(i.partNo || '').includes(val)
+    ).slice(0, 10);
+
+    if (matches.length === 0) { list.classList.remove('show'); return; }
+
+    list.innerHTML = matches.map(i => `
+      <div class="autocomplete-item" data-id="${i.id}">
+        <div>${i.name} ${i.spec ? '(' + i.spec + ')' : ''}</div>
+        <div class="sub">${i.partNo || ''} | ${fmt(i.lastPrice || i.defaultPrice)}원</div>
+      </div>
+    `).join('');
+    list.classList.add('show');
+
+    list.querySelectorAll('.autocomplete-item').forEach(item => {
+      item.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const id = Number(item.dataset.id);
+        const sel = allItems.find(x => x.id === id);
+        if (sel) {
+          row.querySelector('.partno-input').value = sel.partNo || '';
+          input.value = sel.name;
+          row.querySelector('.spec-input').value = sel.spec || '';
+          row.querySelector('.unit-input').value = sel.unit || 'EA';
+          row.querySelector('.price-input').value = fmt(sel.lastPrice || sel.defaultPrice);
+          row.dataset.itemId = sel.id;
+          calcRow(row);
+        }
+        list.classList.remove('show');
+      });
+    });
+  });
+
+  input.addEventListener('blur', () => {
+    setTimeout(() => list.classList.remove('show'), 200);
+  });
+}
+
+// ============================================================
+// Customer Autocomplete in Statement
+// ============================================================
+(function() {
+  const input = document.getElementById('stmt-customer');
+  const list = document.getElementById('customer-autocomplete');
+  let allCusts = [];
+
+  async function refreshCusts() {
+    allCusts = await dbGet('customers');
+    allCusts.sort((a, b) => (b.tradeCount || 0) - (a.tradeCount || 0));
+  }
+
+  function showList(items) {
+    if (items.length === 0) { list.classList.remove('show'); return; }
+    list.innerHTML = items.map(c => `
+      <div class="autocomplete-item" data-id="${c.id}">
+        <div>${c.name}</div>
+        <div class="sub">${c.representative || ''} ${c.phone ? '| ' + c.phone : ''}</div>
+      </div>
+    `).join('');
+    list.classList.add('show');
+    list.querySelectorAll('.autocomplete-item').forEach(item => {
+      item.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const id = Number(item.dataset.id);
+        const c = allCusts.find(x => x.id === id);
+        if (c) {
+          input.value = c.name;
+          document.getElementById('stmt-customer-id').value = c.id;
+        }
+        list.classList.remove('show');
+      });
+    });
+  }
+
+  input.addEventListener('focus', async () => {
+    await refreshCusts();
+    const val = normalize(input.value.trim());
+    if (!val) {
+      showList(allCusts);
+    } else {
+      showList(allCusts.filter(c => normalize(c.name).includes(val)));
+    }
+  });
+
+  input.addEventListener('input', () => {
+    const val = normalize(input.value.trim());
+    if (!val) { showList(allCusts); return; }
+    showList(allCusts.filter(c => normalize(c.name).includes(val)));
+  });
+
+  input.addEventListener('blur', () => {
+    setTimeout(() => list.classList.remove('show'), 200);
+  });
+})();
+
+// ============================================================
+// Save Statement
+// ============================================================
+let editingStatementId = null;
+
+async function saveStatement() {
+  const customerName = document.getElementById('stmt-customer').value.trim();
+  if (!customerName) { showToast('거래처를 선택하세요.'); return; }
+
+  const rows = document.querySelectorAll('#stmt-items tr');
+  const items = [];
+  for (const tr of rows) {
+    const name = tr.querySelector('.name-input').value.trim();
+    if (!name) continue;
+    items.push({
+      itemId: Number(tr.dataset.itemId) || null,
+      partNo: tr.querySelector('.partno-input').value.trim(),
+      name: name,
+      spec: tr.querySelector('.spec-input').value.trim(),
+      unit: tr.querySelector('.unit-input').value.trim(),
+      qty: parseInt(tr.querySelector('.qty-input').value) || 0,
+      price: parseNum(tr.querySelector('.price-input').value),
+      amount: parseNum(tr.querySelector('.amount-input').value),
+      note: tr.querySelector('.note-input').value.trim()
+    });
+  }
+
+  if (items.length === 0) { showToast('품목을 최소 1개 이상 입력하세요.'); return; }
+
+  const supply = items.reduce((s, i) => s + i.amount, 0);
+  const tax = Math.round(supply * 0.1);
+
+  let customerId = Number(document.getElementById('stmt-customer-id').value) || null;
+  if (!customerId) {
+    const newCust = { name: customerName, createdAt: new Date().toISOString(), tradeCount: 0, updatedAt: new Date().toISOString() };
+    customerId = await dbAdd('customers', newCust);
+  }
+
+  const stmt = {
+    number: document.getElementById('stmt-number').value,
+    date: document.getElementById('stmt-date').value,
+    customerId: customerId,
+    customerName: customerName,
+    items: items,
+    supplyAmount: supply,
+    tax: tax,
+    total: supply + tax,
+    createdAt: new Date().toISOString()
+  };
+
+  if (editingStatementId) {
+    stmt.id = editingStatementId;
+    const orig = await dbGetOne('statements', editingStatementId);
+    stmt.createdAt = orig.createdAt;
+    stmt.updatedAt = new Date().toISOString();
+    await dbPut('statements', stmt);
+    editingStatementId = null;
+  } else {
+    try {
+      await dbAdd('statements', stmt);
+    } catch (e) {
+      stmt.number = await generateNumber() + String(Date.now()).slice(-3);
+      await dbAdd('statements', stmt);
+    }
+  }
+
+  // 저장 후 매출번호 갱신
+  const newNum = await generateNumber();
+  document.getElementById('stmt-number').value = newNum;
+
+  // Update item DB: save new items, update lastPrice and useCount
+  for (const item of items) {
+    if (item.itemId) {
+      const existing = await dbGetOne('items', item.itemId);
+      if (existing) {
+        existing.lastPrice = item.price;
+        existing.useCount = (existing.useCount || 0) + 1;
+        existing.updatedAt = new Date().toISOString();
+        await dbPut('items', existing);
+      }
+    } else if (item.name) {
+      const allItems = await dbGet('items');
+      const dup = allItems.find(x => x.name === item.name);
+      if (!dup) {
+        await dbAdd('items', {
+          partNo: item.partNo,
+          name: item.name,
+          spec: item.spec,
+          unit: item.unit,
+          defaultPrice: item.price,
+          lastPrice: item.price,
+          useCount: 1,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        dup.lastPrice = item.price;
+        dup.useCount = (dup.useCount || 0) + 1;
+        dup.updatedAt = new Date().toISOString();
+        await dbPut('items', dup);
+      }
+    }
+  }
+
+  // Update customer trade count
+  const cust = await dbGetOne('customers', customerId);
+  if (cust) {
+    cust.tradeCount = (cust.tradeCount || 0) + 1;
+    await dbPut('customers', cust);
+  }
+
+  showToast('거래명세서가 저장되었습니다.', 'success');
+  return stmt;
+}
+
+async function saveAndPrint() {
+  const stmt = await saveStatement();
+  if (stmt) {
+    await printStatement(stmt);
+    resetForm();
+  }
+}
+
+async function resetForm() {
+  editingStatementId = null;
+  document.getElementById('stmt-customer').value = '';
+  document.getElementById('stmt-customer-id').value = '';
+  document.getElementById('stmt-date').value = today();
+  document.getElementById('stmt-items').innerHTML = '';
+  const num = await generateNumber();
+  document.getElementById('stmt-number').value = num;
+  for (let i = 0; i < 5; i++) addItemRow();
+  calcTotals();
+}
+
+// ============================================================
+// Print Statement
+// ============================================================
+async function printStatement(stmt) {
+  if (typeof stmt === 'number') {
+    stmt = await dbGetOne('statements', stmt);
+  }
+  const settings = await dbGetOne('settings', 'supplier') || DEFAULT_SETTINGS;
+  const cust = stmt.customerId ? await dbGetOne('customers', stmt.customerId) : null;
+
+  const itemRows = stmt.items.map((item, i) => `
+    <tr>
+      <td style="text-align:center">${i + 1}</td>
+      <td>${item.partNo || ''}</td>
+      <td>${item.name}</td>
+      <td style="text-align:center">${item.spec || ''}</td>
+      <td style="text-align:center">${item.unit || 'EA'}</td>
+      <td style="text-align:right">${item.qty}</td>
+      <td style="text-align:right">${fmt(item.price)}</td>
+      <td style="text-align:right">${fmt(item.amount)}</td>
+      <td>${item.note || ''}</td>
+    </tr>
+  `).join('');
+
+  const emptyRows = Math.max(0, 19 - stmt.items.length);
+  const emptyHtml = Array(emptyRows).fill('<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>').join('');
+
+  const dateStr = stmt.date ? stmt.date.replace(/-/g, '.') : '';
+
+  const html = `
+    <div class="print-stmt" style="font-family:'Malgun Gothic',sans-serif; padding:15mm; width:210mm;">
+      <div style="text-align:center; font-size:24px; font-weight:bold; letter-spacing:12px; border-bottom:3px double #000; padding-bottom:10px; margin-bottom:15px;">
+        거 래 명 세 서
+      </div>
+
+      <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+        <div style="flex:1;">
+          <div style="font-size:13px; margin-bottom:4px;">매출번호: ${stmt.number}</div>
+          <div style="font-size:13px; margin-bottom:8px;">${dateStr}</div>
+          <div style="font-size:18px; font-weight:bold; margin-bottom:8px;">${stmt.customerName} 귀하</div>
+          <div style="font-size:13px; margin-top:12px;">아래와 같이 청구합니다.</div>
+        </div>
+        <div style="flex:1; border:2px solid #000; padding:10px;">
+          <div style="text-align:center; font-size:12px; font-weight:bold; margin-bottom:6px;">공 급 자</div>
+          <table style="width:100%; font-size:12px;">
+            <tr><td style="width:70px; padding:3px; border:none;">등록번호</td><td style="padding:3px; border:none; font-weight:bold;">${settings.bizNumber}</td></tr>
+            <tr><td style="padding:3px; border:none;">상      호</td><td style="padding:3px; border:none; font-weight:bold;">${settings.company}</td></tr>
+            <tr><td style="padding:3px; border:none;">대 표 자</td><td style="padding:3px; border:none; font-weight:bold;">${settings.representative} (印)</td></tr>
+            <tr><td style="padding:3px; border:none;">주      소</td><td style="padding:3px; border:none;">${settings.address}</td></tr>
+            <tr><td style="padding:3px; border:none;">전화번호</td><td style="padding:3px; border:none;">${settings.phone}${settings.fax ? ' / FAX ' + settings.fax : ''}</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <table style="width:100%; border-collapse:collapse; margin-bottom:8px;">
+        <tr>
+          <td style="border:1px solid #000; padding:8px; background:#f0f0f0; font-weight:bold; text-align:center; width:100px;">합계금액</td>
+          <td style="border:1px solid #000; padding:8px; text-align:right; font-size:16px; font-weight:bold;">${fmt(stmt.total)} 원</td>
+        </tr>
+      </table>
+
+      <table style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f0f0f0;">
+            <th style="border:1px solid #000; padding:6px; font-size:11px; width:35px;">순번</th>
+            <th style="border:1px solid #000; padding:6px; font-size:11px; width:65px;">품번</th>
+            <th style="border:1px solid #000; padding:6px; font-size:11px;">품    명</th>
+            <th style="border:1px solid #000; padding:6px; font-size:11px; width:70px;">규격</th>
+            <th style="border:1px solid #000; padding:6px; font-size:11px; width:40px;">단위</th>
+            <th style="border:1px solid #000; padding:6px; font-size:11px; width:45px;">수량</th>
+            <th style="border:1px solid #000; padding:6px; font-size:11px; width:80px;">단가</th>
+            <th style="border:1px solid #000; padding:6px; font-size:11px; width:80px;">금액</th>
+            <th style="border:1px solid #000; padding:6px; font-size:11px; width:70px;">비고</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemRows}
+          ${emptyHtml}
+        </tbody>
+      </table>
+
+      <table style="width:100%; border-collapse:collapse; margin-top:0;">
+        <tr>
+          <td style="border:1px solid #000; padding:6px; background:#f0f0f0; font-weight:bold; text-align:center; width:33%;">공급가액: ${fmt(stmt.supplyAmount)}</td>
+          <td style="border:1px solid #000; padding:6px; background:#f0f0f0; font-weight:bold; text-align:center; width:33%;">세  액: ${fmt(stmt.tax)}</td>
+          <td style="border:1px solid #000; padding:6px; background:#f0f0f0; font-weight:bold; text-align:center; width:34%;">합  계: ${fmt(stmt.total)}</td>
+        </tr>
+      </table>
+
+      <div style="margin-top:20px; display:flex; justify-content:space-between; font-size:12px;">
+        <div>※항상 최선을 다하겠습니다.</div>
+        <div>담당:  ${settings.representative}</div>
+      </div>
+      <div style="margin-top:10px; padding:8px 12px; border:1px solid #999; border-radius:4px; font-size:13px; text-align:center; background:#fafafa;">
+        <strong>입금계좌</strong>&nbsp;&nbsp;새마을금고 9003-3131-1724-6 예금주: 김세인
+      </div>
+    </div>
+  `;
+
+  const printArea = document.getElementById('printArea');
+  printArea.innerHTML = html;
+
+  if (!printStatement._imageOnly) {
+    printArea.style.display = 'block';
+    const printWin = window.open('', '_blank', 'width=800,height=1000');
+    printWin.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>거래명세서 - ${stmt.customerName}</title>
+      <style>@page { size: A4; margin: 0; } body { margin: 0; } @media print { body { -webkit-print-color-adjust: exact; } }</style>
+    </head><body>${html}</body></html>`);
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => { printWin.print(); }, 500);
+    printArea.style.display = 'none';
+  }
+}
+printStatement._imageOnly = false;
+
+// ============================================================
+// History
+// ============================================================
+async function loadHistory() {
+  const stmts = await dbGet('statements');
+  stmts.sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id);
+
+  // Stats
+  const thisMonth = today().slice(0, 7);
+  const monthStmts = stmts.filter(s => s.date && s.date.startsWith(thisMonth));
+  const monthTotal = monthStmts.reduce((sum, s) => sum + (s.total || 0), 0);
+
+  document.getElementById('history-stats').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">전체 발행 건수</div>
+      <div class="stat-value">${stmts.length}건</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">이번 달 발행</div>
+      <div class="stat-value">${monthStmts.length}건</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">이번 달 합계</div>
+      <div class="stat-value" style="color:var(--primary)">${fmt(monthTotal)}원</div>
+    </div>
+  `;
+
+  renderHistoryList(stmts);
+}
+
+function renderHistoryList(stmts) {
+  document.getElementById('history-list').innerHTML = stmts.map(s => {
+    const itemsPreview = s.items.map(i => i.name).join(', ');
+    return `
+      <div class="history-item" onclick="viewStatement('${s.id}')">
+        <div class="history-info">
+          <div class="date">${s.date || '-'} <span class="badge badge-green">${s.number}</span></div>
+          <div class="customer">${s.customerName}</div>
+          <div class="items-preview">${itemsPreview}</div>
+        </div>
+        <div class="history-amount">${fmt(s.total)}원</div>
+        <div class="history-actions" onclick="event.stopPropagation()">
+          <button class="btn btn-outline btn-sm" onclick="printStatement('${s.id}')">인쇄</button>
+          <button class="btn btn-sm" style="background:#FEE500;color:#191919" onclick="shareStatement('${s.id}')">카톡</button>
+          <button class="btn btn-sm" style="background:#4285f4;color:white" onclick="emailStatement('${s.id}')">메일</button>
+          <button class="btn btn-outline btn-sm" onclick="editStatement('${s.id}')">수정</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteStatement('${s.id}')">삭제</button>
+        </div>
+      </div>
+    `;
+  }).join('') || '<div style="text-align:center; padding:40px; color:var(--text-light)">발행된 거래명세서가 없습니다.</div>';
+}
+
+async function searchHistory() {
+  const keyword = document.getElementById('history-search').value.toLowerCase();
+  const numKeyword = document.getElementById('history-number').value.trim();
+  const month = document.getElementById('history-month').value;
+  let stmts = await dbGet('statements');
+  stmts.sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id);
+
+  if (keyword) {
+    const nk = normalize(keyword);
+    stmts = stmts.filter(s =>
+      normalize(s.customerName).includes(nk) ||
+      s.items.some(i => normalize(i.name).includes(nk))
+    );
+  }
+  if (numKeyword) {
+    stmts = stmts.filter(s => s.number && s.number.includes(numKeyword));
+  }
+  if (month) {
+    stmts = stmts.filter(s => s.date && s.date.startsWith(month));
+  }
+  renderHistoryList(stmts);
+}
+
+async function clearHistorySearch() {
+  document.getElementById('history-search').value = '';
+  document.getElementById('history-number').value = '';
+  document.getElementById('history-month').value = '';
+  loadHistory();
+}
+
+async function viewStatement(id) {
+  const s = await dbGetOne('statements', id);
+  const itemsHtml = s.items.map((item, i) => `
+    <tr>
+      <td style="text-align:center">${i + 1}</td>
+      <td>${item.name}</td>
+      <td style="text-align:center">${item.spec || '-'}</td>
+      <td style="text-align:center">${item.qty}</td>
+      <td style="text-align:right">${fmt(item.price)}</td>
+      <td style="text-align:right">${fmt(item.amount)}</td>
+    </tr>
+  `).join('');
+
+  showModal(`
+    <div class="modal-title">거래명세서 상세 - ${s.number}</div>
+    <div style="margin-bottom:8px"><strong>거래처:</strong> ${s.customerName}</div>
+    <div style="margin-bottom:12px"><strong>날짜:</strong> ${s.date}</div>
+    <table style="width:100%; border-collapse:collapse;">
+      <thead>
+        <tr><th style="border:1px solid var(--border); padding:6px; background:#f1f5f9; font-size:12px;">No</th>
+        <th style="border:1px solid var(--border); padding:6px; background:#f1f5f9; font-size:12px;">품명</th>
+        <th style="border:1px solid var(--border); padding:6px; background:#f1f5f9; font-size:12px;">규격</th>
+        <th style="border:1px solid var(--border); padding:6px; background:#f1f5f9; font-size:12px;">수량</th>
+        <th style="border:1px solid var(--border); padding:6px; background:#f1f5f9; font-size:12px;">단가</th>
+        <th style="border:1px solid var(--border); padding:6px; background:#f1f5f9; font-size:12px;">금액</th></tr>
+      </thead>
+      <tbody>${itemsHtml}</tbody>
+    </table>
+    <div style="margin-top:12px; text-align:right; font-size:16px;">
+      <div>공급가액: <strong>${fmt(s.supplyAmount)}</strong></div>
+      <div>세액: <strong>${fmt(s.tax)}</strong></div>
+      <div style="font-size:20px; color:var(--primary);">합계: <strong>${fmt(s.total)}원</strong></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="printStatement('${s.id}'); closeModal();">인쇄</button>
+      <button class="btn btn-sm" style="background:#FEE500;color:#191919" onclick="shareStatement('${s.id}'); closeModal();">카톡 공유</button>
+      <button class="btn btn-sm" style="background:#4285f4;color:white" onclick="emailStatement('${s.id}'); closeModal();">메일 발송</button>
+      <button class="btn btn-outline" onclick="editStatement('${s.id}'); closeModal();">수정</button>
+      <button class="btn btn-outline" onclick="closeModal()">닫기</button>
+    </div>
+  `);
+}
+
+async function editStatement(id) {
+  const s = await dbGetOne('statements', id);
+  editingStatementId = id;
+
+  // Switch to write tab
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelector('[data-page="write"]').classList.add('active');
+  document.getElementById('page-write').classList.add('active');
+
+  document.getElementById('stmt-number').value = s.number;
+  document.getElementById('stmt-date').value = s.date;
+  document.getElementById('stmt-customer').value = s.customerName;
+  document.getElementById('stmt-customer-id').value = s.customerId || '';
+
+  document.getElementById('stmt-items').innerHTML = '';
+  s.items.forEach(item => addItemRow(item));
+  calcTotals();
+}
+
+async function deleteStatement(id) {
+  if (!confirm('이 거래명세서를 삭제하시겠습니까?')) return;
+  await dbDelete('statements', id);
+  showToast('삭제되었습니다.');
+  loadHistory();
+}
+
+// ============================================================
+// Data Export/Import
+// ============================================================
+async function exportAllData() {
+  const data = {
+    items: await dbGet('items'),
+    customers: await dbGet('customers'),
+    statements: await dbGet('statements'),
+    settings: await dbGetOne('settings', 'supplier'),
+    exportDate: new Date().toISOString()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `세진상사_백업_${today()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('백업 파일이 다운로드됩니다.', 'success');
+}
+
+async function importAllData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!confirm('기존 데이터를 덮어씁니다. 계속하시겠습니까?')) return;
+
+  const text = await file.text();
+  const data = JSON.parse(text);
+
+  // Clear existing data
+  const stores = ['items', 'customers', 'statements'];
+  for (const storeName of stores) {
+    const existing = await dbGet(storeName);
+    for (const item of existing) {
+      await dbDelete(storeName, item.id);
+    }
+  }
+
+  let maxItem = 0, maxCust = 0, maxStmt = 0;
+  if (data.items) for (const i of data.items) { await dbPut('items', i); if (i.id > maxItem) maxItem = i.id; }
+  if (data.customers) for (const c of data.customers) { await dbPut('customers', c); if (c.id > maxCust) maxCust = c.id; }
+  if (data.statements) for (const s of data.statements) { await dbPut('statements', s); if (s.id > maxStmt) maxStmt = s.id; }
+  if (data.settings) await dbPut('settings', { key: 'supplier', ...data.settings });
+
+  await fsDb.collection('_counters').doc('items').set({ current: maxItem });
+  await fsDb.collection('_counters').doc('customers').set({ current: maxCust });
+  await fsDb.collection('_counters').doc('statements').set({ current: maxStmt });
+
+  showToast('데이터가 복원되었습니다.', 'success');
+  loadSettings();
+  event.target.value = '';
+}
+
+// ============================================================
+// Share/Email from History
+// ============================================================
+async function shareStatement(id) {
+  const stmt = await dbGetOne('statements', id);
+  if (!stmt) return;
+  showToast('이미지 생성 중...');
+  try {
+    const canvas = await generateStatementImage(stmt);
+    canvas.toBlob(async (blob) => {
+      const file = new File([blob], `거래명세서_${stmt.customerName}_${stmt.date}.png`, { type: 'image/png' });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: `거래명세서 - ${stmt.customerName}`,
+          text: `${stmt.customerName} 거래명세서 (${stmt.date}) 합계: ${fmt(stmt.total)}원`,
+          files: [file]
+        });
+        showToast('공유 완료!', 'success');
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('이미지가 다운로드됩니다.', 'success');
+      }
+    }, 'image/png');
+  } catch (e) {
+    showToast('공유 실패: ' + e.message);
+  }
+}
+
+async function emailStatement(id) {
+  const stmt = await dbGetOne('statements', id);
+  if (!stmt) return;
+
+  let custEmail = '';
+  if (stmt.customerId) {
+    const cust = await dbGetOne('customers', stmt.customerId);
+    if (cust) custEmail = cust.email || '';
+  }
+
+  showToast('이미지 생성 중...');
+  try {
+    const canvas = await generateStatementImage(stmt);
+    canvas.toBlob((blob) => {
+      const fileName = `거래명세서_${stmt.customerName}_${stmt.date}.png`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      const subject = encodeURIComponent(`거래명세서 - ${stmt.customerName} (${stmt.date})`);
+      const body = encodeURIComponent(`${stmt.customerName} 귀하\n\n거래명세서를 보내드립니다.\n합계금액: ${fmt(stmt.total)}원\n\n첨부된 이미지를 확인해주세요.\n\n감사합니다.\n세진상사 드림`);
+      const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(custEmail)}&su=${subject}&body=${body}`;
+      window.open(gmailUrl, '_blank');
+
+      showToast('이미지 저장 완료! Gmail에서 파일을 첨부해주세요.', 'success');
+    }, 'image/png');
+  } catch (e) {
+    showToast('실패: ' + e.message);
+  }
+}
+
+// ============================================================
+// EmailJS Settings
+// ============================================================
+async function loadEmailSettings() {
+  const s = await dbGetOne('settings', 'emailjs');
+  if (s) {
+    document.getElementById('set-emailjs-pubkey').value = s.publicKey || '';
+    document.getElementById('set-emailjs-service').value = s.serviceId || '';
+    document.getElementById('set-emailjs-template').value = s.templateId || '';
+  }
+}
+
+async function saveEmailSettings() {
+  const s = {
+    key: 'emailjs',
+    publicKey: document.getElementById('set-emailjs-pubkey').value.trim(),
+    serviceId: document.getElementById('set-emailjs-service').value.trim(),
+    templateId: document.getElementById('set-emailjs-template').value.trim(),
+  };
+  await dbPut('settings', s);
+  showToast('이메일 설정이 저장되었습니다.', 'success');
+}
+
+// ============================================================
+// Generate Statement Image
+// ============================================================
+async function generateStatementImage(stmt) {
+  if (typeof stmt === 'number') stmt = await dbGetOne('statements', stmt);
+
+  printStatement._imageOnly = true;
+  await printStatement(stmt);
+  printStatement._imageOnly = false;
+
+  const container = document.getElementById('printArea');
+  container.style.display = 'block';
+  container.style.position = 'fixed';
+  container.style.left = '-9999px';
+
+  const canvas = await html2canvas(container.querySelector('.print-stmt') || container, {
+    scale: 2, useCORS: true, backgroundColor: '#ffffff'
+  });
+
+  container.style.display = 'none';
+  container.style.position = '';
+  container.style.left = '';
+
+  return canvas;
+}
+
+// ============================================================
+// KakaoTalk Share (Web Share API)
+// ============================================================
+async function saveAndShare() {
+  const stmt = await saveStatement();
+  if (!stmt) return;
+
+  showToast('이미지 생성 중...');
+  try {
+    const canvas = await generateStatementImage(stmt);
+
+    canvas.toBlob(async (blob) => {
+      const file = new File([blob], `거래명세서_${stmt.customerName}_${stmt.date}.png`, { type: 'image/png' });
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: `거래명세서 - ${stmt.customerName}`,
+          text: `${stmt.customerName} 거래명세서 (${stmt.date}) 합계: ${fmt(stmt.total)}원`,
+          files: [file]
+        });
+        showToast('공유 완료!', 'success');
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('이미지가 다운로드됩니다. 카톡에서 직접 첨부해주세요.', 'success');
+      }
+      resetForm();
+    }, 'image/png');
+  } catch (e) {
+    showToast('공유 실패: ' + e.message);
+  }
+}
+
+// ============================================================
+// Email Send
+// ============================================================
+async function saveAndEmail() {
+  const stmt = await saveStatement();
+  if (!stmt) return;
+
+  const emailSettings = await dbGetOne('settings', 'emailjs');
+  if (!emailSettings || !emailSettings.publicKey) {
+    showToast('설정 탭에서 이메일(EmailJS) 설정을 먼저 해주세요.');
+    return;
+  }
+
+  let custEmail = '';
+  if (stmt.customerId) {
+    const cust = await dbGetOne('customers', stmt.customerId);
+    if (cust) custEmail = cust.email || '';
+  }
+
+  if (!custEmail) {
+    const input = prompt('거래처 이메일 주소를 입력하세요:');
+    if (!input) return;
+    custEmail = input.trim();
+  }
+
+  showToast('이미지 생성 중...');
+  try {
+    const canvas = await generateStatementImage(stmt);
+    canvas.toBlob((blob) => {
+      const fileName = `거래명세서_${stmt.customerName}_${stmt.date}.png`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      const subject = encodeURIComponent(`거래명세서 - ${stmt.customerName} (${stmt.date})`);
+      const body = encodeURIComponent(`${stmt.customerName} 귀하\n\n거래명세서를 보내드립니다.\n합계금액: ${fmt(stmt.total)}원\n\n첨부된 이미지를 확인해주세요.\n\n감사합니다.\n세진상사 드림`);
+      const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(custEmail)}&su=${subject}&body=${body}`;
+      window.open(gmailUrl, '_blank');
+
+      showToast('이미지 저장 완료! Gmail에서 파일을 첨부해주세요.', 'success');
+      resetForm();
+    }, 'image/png');
+  } catch (e) {
+    showToast('실패: ' + e.message);
+  }
+}
+
+// ============================================================
+// Initialize
+// ============================================================
+async function init() {
+  await openDB();
+  await loadSettings();
+  await loadEmailSettings();
+  document.getElementById('stmt-date').value = today();
+  const num = await generateNumber();
+  document.getElementById('stmt-number').value = num;
+  for (let i = 0; i < 5; i++) addItemRow();
+}
+
+init();
+</script>
+</body>
+</html>
