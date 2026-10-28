@@ -124,7 +124,7 @@ tr:hover { background: #f8fafc; }
 /* Modal */
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 200; display: none; align-items: center; justify-content: center; }
 .modal-overlay.show { display: flex; }
-.modal { background: white; border-radius: 12px; padding: 24px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
+.modal { background: white; border-radius: 12px; padding: 24px; width: 90%; max-width: 700px; max-height: 80vh; overflow-y: auto; }
 .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
@@ -178,8 +178,10 @@ tr:hover { background: #f8fafc; }
   <div class="nav-tabs">
     <button class="nav-tab active" data-page="write">거래명세서 작성</button>
     <button class="nav-tab" data-page="history">발행 이력</button>
+    <button class="nav-tab" data-page="cashbook">입출금</button>
     <button class="nav-tab" data-page="items">품목 관리</button>
     <button class="nav-tab" data-page="customers">거래처 관리</button>
+    <button class="nav-tab" data-page="worklog">업무일지</button>
     <button class="nav-tab" data-page="settings">설정</button>
   </div>
 </nav>
@@ -389,6 +391,12 @@ tr:hover { background: #f8fafc; }
           </div>
         </div>
       </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label>비고</label>
+          <input type="text" id="cust-note" placeholder="메모, 특이사항 등">
+        </div>
+      </div>
       <div style="margin-top:8px">
         <button class="btn btn-primary" onclick="saveCustomer()">거래처 추가</button>
         <input type="hidden" id="cust-edit-id">
@@ -403,6 +411,7 @@ tr:hover { background: #f8fafc; }
               <th>전화번호</th>
               <th>이메일</th>
               <th>담당자</th>
+              <th>비고</th>
               <th class="text-center">거래횟수</th>
               <th class="text-center">관리</th>
             </tr>
@@ -410,6 +419,204 @@ tr:hover { background: #f8fafc; }
           <tbody id="customers-table"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+
+  <!-- 입출금 관리 -->
+  <div id="page-cashbook" class="page">
+    <div class="stats" id="cashbook-stats"></div>
+    <div class="card">
+      <div class="card-title">입출금 내역 입력</div>
+      <div class="form-row">
+        <div class="form-group" style="flex:0.8">
+          <label>날짜</label>
+          <input type="date" id="cb-date">
+        </div>
+        <div class="form-group" style="flex:0.6">
+          <label>구분</label>
+          <select id="cb-type">
+            <option value="income">입금</option>
+            <option value="expense">출금</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>카테고리</label>
+          <select id="cb-category">
+            <option value="">-- 선택 --</option>
+            <optgroup label="입금">
+              <option value="매출입금">매출입금</option>
+              <option value="기타입금">기타입금</option>
+            </optgroup>
+            <optgroup label="출금 - 차량">
+              <option value="기름값">기름값</option>
+              <option value="차량정비">차량정비</option>
+              <option value="톨비">톨비/통행료</option>
+              <option value="주차비">주차비</option>
+            </optgroup>
+            <optgroup label="출금 - 식비/생활">
+              <option value="식대">식대</option>
+              <option value="접대비">접대비</option>
+            </optgroup>
+            <optgroup label="출금 - 사업">
+              <option value="자재구입">자재구입</option>
+              <option value="소모품">소모품</option>
+              <option value="인건비">인건비</option>
+              <option value="공과금">공과금</option>
+              <option value="임대료">임대료</option>
+              <option value="보험료">보험료</option>
+              <option value="세금">세금</option>
+              <option value="기타지출">기타지출</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>금액</label>
+          <input type="text" id="cb-amount" placeholder="금액 입력" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+        </div>
+        <div class="form-group" style="flex:1.5">
+          <label>내용</label>
+          <input type="text" id="cb-memo" placeholder="내용 메모">
+        </div>
+        <div class="form-group" style="justify-content:flex-end">
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" onclick="saveCashbook()">등록</button>
+        </div>
+      </div>
+      <input type="hidden" id="cb-edit-id">
+    </div>
+    <div class="card">
+      <div class="card-title">월별 요약</div>
+      <div id="cashbook-monthly"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div class="card-title" style="margin-bottom:0; border-bottom:none; padding-bottom:0;">입출금 내역</div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="month" id="cb-month" onchange="renderCashbook()">
+          <select id="cb-filter" onchange="renderCashbook()" style="padding:8px; border:1px solid var(--border); border-radius:6px; font-size:13px;">
+            <option value="all">전체</option>
+            <option value="income">입금만</option>
+            <option value="expense">출금만</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('cb-month').value='';document.getElementById('cb-filter').value='all';renderCashbook()">전체보기</button>
+        </div>
+      </div>
+      <div id="cashbook-list"></div>
+    </div>
+  </div>
+
+  <!-- 일일 업무일지 -->
+  <div id="page-worklog" class="page">
+    <div class="stats" id="worklog-stats"></div>
+    <div id="worklog-alert-panel"></div>
+    <div class="card">
+      <div class="card-title">업무 등록</div>
+      <div class="form-row">
+        <div class="form-group" style="flex:0.8">
+          <label>날짜</label>
+          <input type="date" id="wl-date">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>장소</label>
+          <input type="text" id="wl-location" placeholder="작업 장소">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>고객이름</label>
+          <div class="autocomplete-wrapper">
+            <input type="text" id="wl-customer" placeholder="고객이름 입력..." autocomplete="off">
+            <div class="autocomplete-list" id="wl-customer-autocomplete"></div>
+          </div>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>보유모델</label>
+          <input type="text" id="wl-model" placeholder="보유모델">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>담당자 연락처</label>
+          <input type="text" id="wl-contact" placeholder="010-0000-0000">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1.5">
+          <label>증상</label>
+          <input type="text" id="wl-symptom" placeholder="증상 내용">
+        </div>
+        <div class="form-group" style="flex:1.5">
+          <label>점검사항</label>
+          <input type="text" id="wl-inspection" placeholder="점검 내용">
+        </div>
+        <div class="form-group" style="flex:0.6">
+          <label>완료</label>
+          <select id="wl-done">
+            <option value="미완료">미완료</option>
+            <option value="완료">완료</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:0.6">
+          <label>결제</label>
+          <select id="wl-paid">
+            <option value="미결제">미결제</option>
+            <option value="결제완료">결제완료</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:0.7">
+          <label>결제수단</label>
+          <select id="wl-pay-method" onchange="calcWorklogTotal()">
+            <option value="">-- 선택 --</option>
+            <option value="현금">현금</option>
+            <option value="카드">카드</option>
+            <option value="계산서">계산서</option>
+            <option value="계좌이체">계좌이체</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:0.7">
+          <label>부품 원가</label>
+          <input type="text" id="wl-parts-cost" placeholder="원가" oninput="this.value=this.value.replace(/[^0-9]/g,'');" style="color:#9333ea;">
+        </div>
+        <div class="form-group" style="flex:0.7">
+          <label>부품 청구</label>
+          <input type="text" id="wl-parts-amount" placeholder="청구액" oninput="this.value=this.value.replace(/[^0-9]/g,'');calcWorklogTotal()">
+        </div>
+        <div class="form-group" style="flex:0.7">
+          <label>수리비</label>
+          <input type="text" id="wl-labor-amount" placeholder="수리비" oninput="this.value=this.value.replace(/[^0-9]/g,'');calcWorklogTotal()">
+        </div>
+        <div class="form-group" style="flex:0.7">
+          <label>청구 합계</label>
+          <input type="text" id="wl-pay-amount" readonly style="background:#f1f5f9;font-weight:700;color:var(--primary)">
+          <div id="wl-vat-display" style="display:none;font-size:11px;color:var(--text-light);margin-top:2px;"></div>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>비고</label>
+          <input type="text" id="wl-note" placeholder="비고">
+        </div>
+        <div class="form-group" style="justify-content:flex-end">
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" onclick="saveWorklog()">등록</button>
+        </div>
+      </div>
+      <input type="hidden" id="wl-edit-id">
+    </div>
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div class="card-title" style="margin-bottom:0; border-bottom:none; padding-bottom:0;">업무 내역</div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="text" id="wl-search" placeholder="고객/모델/증상 검색..." oninput="renderWorklog()" style="padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px;">
+          <input type="month" id="wl-filter-month" onchange="renderWorklog()" style="padding:8px; border:1px solid var(--border); border-radius:6px; font-size:13px;">
+          <select id="wl-filter-done" onchange="renderWorklog()" style="padding:8px; border:1px solid var(--border); border-radius:6px; font-size:13px;">
+            <option value="all">전체</option>
+            <option value="미완료">미완료</option>
+            <option value="완료">완료</option>
+          </select>
+          <select id="wl-filter-paid" onchange="renderWorklog()" style="padding:8px; border:1px solid var(--border); border-radius:6px; font-size:13px;">
+            <option value="all">전체</option>
+            <option value="미결제">미결제</option>
+            <option value="결제완료">결제완료</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="clearWorklogFilter()">전체보기</button>
+        </div>
+      </div>
+      <div id="worklog-list"></div>
     </div>
   </div>
 
@@ -601,8 +808,10 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
     tab.classList.add('active');
     document.getElementById('page-' + tab.dataset.page).classList.add('active');
     if (tab.dataset.page === 'history') loadHistory();
+    if (tab.dataset.page === 'cashbook') renderCashbook();
     if (tab.dataset.page === 'items') renderItems();
     if (tab.dataset.page === 'customers') renderCustomers();
+    if (tab.dataset.page === 'worklog') renderWorklog();
   });
 });
 
@@ -758,6 +967,7 @@ async function saveCustomer() {
     phone: document.getElementById('cust-phone').value.trim(),
     fax: document.getElementById('cust-fax').value.trim(),
     email: document.getElementById('cust-email').value.trim(),
+    note: document.getElementById('cust-note').value.trim(),
     contacts: [
       { name: document.getElementById('cust-contact1-name').value.trim(), phone: document.getElementById('cust-contact1-phone').value.trim() },
       { name: document.getElementById('cust-contact2-name').value.trim(), phone: document.getElementById('cust-contact2-phone').value.trim() },
@@ -786,7 +996,7 @@ async function saveCustomer() {
 }
 
 function clearCustomerForm() {
-  ['cust-name', 'cust-rep', 'cust-bizno', 'cust-address', 'cust-phone', 'cust-fax', 'cust-email',
+  ['cust-name', 'cust-rep', 'cust-bizno', 'cust-address', 'cust-phone', 'cust-fax', 'cust-email', 'cust-note',
    'cust-contact1-name', 'cust-contact1-phone', 'cust-contact2-name', 'cust-contact2-phone',
    'cust-contact3-name', 'cust-contact3-phone'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('cust-edit-id').value = '';
@@ -803,13 +1013,14 @@ async function renderCustomers() {
       <td>${c.phone || '-'}</td>
       <td>${c.email ? `<a href="https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(c.email)}" target="_blank" style="color:var(--primary);text-decoration:none;" title="Gmail로 보내기">${c.email}</a>` : '-'}</td>
       <td style="font-size:12px">${(c.contacts || []).map(ct => `${ct.name} ${ct.phone}`).join('<br>') || '-'}</td>
+      <td style="font-size:12px">${c.note || '-'}</td>
       <td class="text-center"><span class="badge badge-blue">${c.tradeCount || 0}회</span></td>
       <td class="text-center">
         <button class="btn btn-outline btn-sm" onclick="editCustomer('${c.id}')">수정</button>
         <button class="btn btn-danger btn-sm" onclick="deleteCustomer('${c.id}')">삭제</button>
       </td>
     </tr>
-  `).join('') || '<tr><td colspan="8" class="text-center" style="padding:40px;color:var(--text-light)">등록된 거래처가 없습니다.</td></tr>';
+  `).join('') || '<tr><td colspan="9" class="text-center" style="padding:40px;color:var(--text-light)">등록된 거래처가 없습니다.</td></tr>';
 }
 
 async function editCustomer(id) {
@@ -822,6 +1033,7 @@ async function editCustomer(id) {
   document.getElementById('cust-phone').value = c.phone || '';
   document.getElementById('cust-fax').value = c.fax || '';
   document.getElementById('cust-email').value = c.email || '';
+  document.getElementById('cust-note').value = c.note || '';
   const contacts = c.contacts || [];
   for (let i = 0; i < 3; i++) {
     document.getElementById(`cust-contact${i+1}-name`).value = (contacts[i] && contacts[i].name) || '';
@@ -1306,26 +1518,77 @@ async function loadHistory() {
 }
 
 function renderHistoryList(stmts) {
-  document.getElementById('history-list').innerHTML = stmts.map(s => {
-    const itemsPreview = s.items.map(i => i.name).join(', ');
-    return `
-      <div class="history-item" onclick="viewStatement('${s.id}')">
-        <div class="history-info">
-          <div class="date">${s.date || '-'} <span class="badge badge-green">${s.number}</span></div>
-          <div class="customer">${s.customerName}</div>
-          <div class="items-preview">${itemsPreview}</div>
+  if (stmts.length === 0) {
+    document.getElementById('history-list').innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-light)">발행된 거래명세서가 없습니다.</div>';
+    return;
+  }
+
+  const groups = {};
+  stmts.forEach(s => {
+    const month = (s.date || '').slice(0, 7) || '날짜없음';
+    if (!groups[month]) groups[month] = [];
+    groups[month].push(s);
+  });
+
+  const months = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+  const currentMonth = today().slice(0, 7);
+
+  document.getElementById('history-list').innerHTML = months.map(month => {
+    const list = groups[month];
+    const monthTotal = list.reduce((sum, s) => sum + (s.total || 0), 0);
+    const monthSupply = list.reduce((sum, s) => sum + (s.supplyAmount || 0), 0);
+    const label = month === '날짜없음' ? '날짜 없음' : month.replace('-', '년 ') + '월';
+    const isCurrentMonth = month === currentMonth;
+
+    const itemsHtml = list.map(s => {
+      const itemsPreview = s.items.map(i => i.name).join(', ');
+      return `
+        <div class="history-item" onclick="viewStatement('${s.id}')">
+          <div class="history-info">
+            <div class="date">${s.date || '-'} <span class="badge badge-green">${s.number}</span></div>
+            <div class="customer">${s.customerName}</div>
+            <div class="items-preview">${itemsPreview}</div>
+          </div>
+          <div class="history-amount">${fmt(s.total)}원</div>
+          <div class="history-actions" onclick="event.stopPropagation()">
+            <button class="btn btn-outline btn-sm" onclick="printStatement('${s.id}')">인쇄</button>
+            <button class="btn btn-sm" style="background:#FEE500;color:#191919" onclick="shareStatement('${s.id}')">카톡</button>
+            <button class="btn btn-sm" style="background:#4285f4;color:white" onclick="emailStatement('${s.id}')">메일</button>
+            <button class="btn btn-outline btn-sm" onclick="editStatement('${s.id}')">수정</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteStatement('${s.id}')">삭제</button>
+          </div>
         </div>
-        <div class="history-amount">${fmt(s.total)}원</div>
-        <div class="history-actions" onclick="event.stopPropagation()">
-          <button class="btn btn-outline btn-sm" onclick="printStatement('${s.id}')">인쇄</button>
-          <button class="btn btn-sm" style="background:#FEE500;color:#191919" onclick="shareStatement('${s.id}')">카톡</button>
-          <button class="btn btn-sm" style="background:#4285f4;color:white" onclick="emailStatement('${s.id}')">메일</button>
-          <button class="btn btn-outline btn-sm" onclick="editStatement('${s.id}')">수정</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteStatement('${s.id}')">삭제</button>
+      `;
+    }).join('');
+
+    return `
+      <div style="margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--primary); color:white; border-radius:8px; cursor:pointer;" onclick="toggleHistoryMonth(this)">
+          <div style="font-weight:700; font-size:16px;">${isCurrentMonth ? '▼' : '▶'} ${label} <span style="font-weight:400; font-size:13px; opacity:0.8;">(${list.length}건)</span></div>
+          <div style="text-align:right; font-size:13px;">
+            <div>공급가액: ${fmt(monthSupply)}원</div>
+            <div style="font-size:16px; font-weight:700;">합계: ${fmt(monthTotal)}원</div>
+          </div>
+        </div>
+        <div style="display:${isCurrentMonth ? 'block' : 'none'}; margin-top:8px;">
+          ${itemsHtml}
         </div>
       </div>
     `;
-  }).join('') || '<div style="text-align:center; padding:40px; color:var(--text-light)">발행된 거래명세서가 없습니다.</div>';
+  }).join('');
+}
+
+function toggleHistoryMonth(header) {
+  const content = header.nextElementSibling;
+  const arrow = header.querySelector('div');
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    arrow.innerHTML = arrow.innerHTML.replace('▶', '▼');
+  } else {
+    content.style.display = 'none';
+    arrow.innerHTML = arrow.innerHTML.replace('▼', '▶');
+  }
 }
 
 async function searchHistory() {
@@ -1436,6 +1699,7 @@ async function exportAllData() {
     items: await dbGet('items'),
     customers: await dbGet('customers'),
     statements: await dbGet('statements'),
+    worklog: await dbGet('worklog'),
     settings: await dbGetOne('settings', 'supplier'),
     exportDate: new Date().toISOString()
   };
@@ -1457,26 +1721,45 @@ async function importAllData(event) {
   const text = await file.text();
   const data = JSON.parse(text);
 
-  // Clear existing data
-  const stores = ['items', 'customers', 'statements'];
-  for (const storeName of stores) {
-    const existing = await dbGet(storeName);
-    for (const item of existing) {
-      await dbDelete(storeName, item.id);
-    }
-  }
+  const existingItems = await dbGet('items');
+  const existingCusts = await dbGet('customers');
+  const existingStmts = await dbGet('statements');
+  const existingItemIds = new Set(existingItems.map(i => String(i.id)));
+  const existingCustIds = new Set(existingCusts.map(c => String(c.id)));
+  const existingStmtIds = new Set(existingStmts.map(s => String(s.id)));
 
-  let maxItem = 0, maxCust = 0, maxStmt = 0;
-  if (data.items) for (const i of data.items) { await dbPut('items', i); if (i.id > maxItem) maxItem = i.id; }
-  if (data.customers) for (const c of data.customers) { await dbPut('customers', c); if (c.id > maxCust) maxCust = c.id; }
-  if (data.statements) for (const s of data.statements) { await dbPut('statements', s); if (s.id > maxStmt) maxStmt = s.id; }
+  let added = 0;
+  let maxItem = Math.max(0, ...existingItems.map(i => Number(i.id) || 0));
+  let maxCust = Math.max(0, ...existingCusts.map(c => Number(c.id) || 0));
+  let maxStmt = Math.max(0, ...existingStmts.map(s => Number(s.id) || 0));
+
+  if (data.items) for (const i of data.items) {
+    if (!existingItemIds.has(String(i.id))) { await dbPut('items', i); added++; }
+    if (Number(i.id) > maxItem) maxItem = Number(i.id);
+  }
+  if (data.customers) for (const c of data.customers) {
+    if (!existingCustIds.has(String(c.id))) { await dbPut('customers', c); added++; }
+    if (Number(c.id) > maxCust) maxCust = Number(c.id);
+  }
+  if (data.statements) for (const s of data.statements) {
+    if (!existingStmtIds.has(String(s.id))) { await dbPut('statements', s); added++; }
+    if (Number(s.id) > maxStmt) maxStmt = Number(s.id);
+  }
+  let maxWl = 0;
+  const existingWl = await dbGet('worklog');
+  const existingWlIds = new Set(existingWl.map(w => String(w.id)));
+  if (data.worklog) for (const w of data.worklog) {
+    if (!existingWlIds.has(String(w.id))) { await dbPut('worklog', w); added++; }
+    if (Number(w.id) > maxWl) maxWl = Number(w.id);
+  }
   if (data.settings) await dbPut('settings', { key: 'supplier', ...data.settings });
 
   await fsDb.collection('_counters').doc('items').set({ current: maxItem });
   await fsDb.collection('_counters').doc('customers').set({ current: maxCust });
   await fsDb.collection('_counters').doc('statements').set({ current: maxStmt });
+  if (maxWl) await fsDb.collection('_counters').doc('worklog').set({ current: maxWl });
 
-  showToast('데이터가 복원되었습니다.', 'success');
+  showToast(`데이터 복원 완료! (${added}건 추가)`, 'success');
   loadSettings();
   event.target.value = '';
 }
@@ -1685,6 +1968,798 @@ async function saveAndEmail() {
 }
 
 // ============================================================
+// Cashbook (입출금 관리)
+// ============================================================
+async function saveCashbook() {
+  const editId = document.getElementById('cb-edit-id').value;
+  const data = {
+    date: document.getElementById('cb-date').value,
+    type: document.getElementById('cb-type').value,
+    category: document.getElementById('cb-category').value,
+    amount: parseNum(document.getElementById('cb-amount').value),
+    memo: document.getElementById('cb-memo').value.trim(),
+    updatedAt: new Date().toISOString()
+  };
+  if (!data.date) { showToast('날짜를 선택하세요.'); return; }
+  if (!data.amount) { showToast('금액을 입력하세요.'); return; }
+  if (!data.category) { showToast('카테고리를 선택하세요.'); return; }
+
+  if (editId) {
+    const existing = await dbGetOne('cashbook', editId);
+    data.id = existing.id;
+    data.createdAt = existing.createdAt;
+    await dbPut('cashbook', data);
+    document.getElementById('cb-edit-id').value = '';
+    showToast('수정되었습니다.', 'success');
+  } else {
+    data.createdAt = new Date().toISOString();
+    await dbAdd('cashbook', data);
+    showToast('등록되었습니다.', 'success');
+  }
+  clearCashbookForm();
+  renderCashbook();
+}
+
+function clearCashbookForm() {
+  document.getElementById('cb-date').value = today();
+  document.getElementById('cb-type').value = 'expense';
+  document.getElementById('cb-category').value = '';
+  document.getElementById('cb-amount').value = '';
+  document.getElementById('cb-memo').value = '';
+  document.getElementById('cb-edit-id').value = '';
+}
+
+async function editCashbook(id) {
+  const c = await dbGetOne('cashbook', id);
+  document.getElementById('cb-edit-id').value = c.id;
+  document.getElementById('cb-date').value = c.date;
+  document.getElementById('cb-type').value = c.type;
+  document.getElementById('cb-category').value = c.category;
+  document.getElementById('cb-amount').value = c.amount;
+  document.getElementById('cb-memo').value = c.memo || '';
+  window.scrollTo(0, 0);
+}
+
+async function deleteCashbook(id) {
+  if (!confirm('이 내역을 삭제하시겠습니까?')) return;
+  await dbDelete('cashbook', id);
+  showToast('삭제되었습니다.');
+  renderCashbook();
+}
+
+async function renderCashbook() {
+  const allItems = await dbGet('cashbook');
+  allItems.sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id);
+
+  // 월별 요약 테이블 (전체 데이터 기준)
+  const monthlyMap = {};
+  allItems.forEach(i => {
+    const m = (i.date || '').slice(0, 7);
+    if (!m) return;
+    if (!monthlyMap[m]) monthlyMap[m] = { income: 0, expense: 0, cats: {} };
+    if (i.type === 'income') monthlyMap[m].income += (i.amount || 0);
+    else {
+      monthlyMap[m].expense += (i.amount || 0);
+      monthlyMap[m].cats[i.category] = (monthlyMap[m].cats[i.category] || 0) + (i.amount || 0);
+    }
+  });
+  const sortedMonths = Object.keys(monthlyMap).sort((a, b) => b.localeCompare(a));
+  const filterMonth = document.getElementById('cb-month').value;
+
+  document.getElementById('cashbook-monthly').innerHTML = sortedMonths.length ? `
+    <table style="width:100%; border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="padding:10px; border-bottom:2px solid var(--border);">월</th>
+          <th class="text-right" style="padding:10px; border-bottom:2px solid var(--border); color:var(--primary);">입금</th>
+          <th class="text-right" style="padding:10px; border-bottom:2px solid var(--border); color:var(--danger);">출금</th>
+          <th class="text-right" style="padding:10px; border-bottom:2px solid var(--border);">잔액</th>
+          <th style="padding:10px; border-bottom:2px solid var(--border);">출금 내역</th>
+          <th style="padding:10px; border-bottom:2px solid var(--border); width:60px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sortedMonths.map(m => {
+          const d = monthlyMap[m];
+          const balance = d.income - d.expense;
+          const label = m.replace('-', '년 ') + '월';
+          const catDetail = Object.entries(d.cats).map(([c, a]) => `${c} ${fmt(a)}`).join(', ');
+          const isSelected = filterMonth === m;
+          return `
+            <tr style="cursor:pointer; ${isSelected ? 'background:#eff6ff; font-weight:600;' : ''}" onclick="document.getElementById('cb-month').value='${m}';renderCashbook();">
+              <td style="padding:10px; border-bottom:1px solid var(--border);">${label}</td>
+              <td class="text-right" style="padding:10px; border-bottom:1px solid var(--border); color:var(--primary);">+${fmt(d.income)}</td>
+              <td class="text-right" style="padding:10px; border-bottom:1px solid var(--border); color:var(--danger);">-${fmt(d.expense)}</td>
+              <td class="text-right" style="padding:10px; border-bottom:1px solid var(--border); font-weight:700; color:${balance >= 0 ? 'var(--primary)' : 'var(--danger)'};">${fmt(balance)}원</td>
+              <td style="padding:10px; border-bottom:1px solid var(--border); font-size:12px; color:var(--text-light);">${catDetail}</td>
+              <td style="padding:10px; border-bottom:1px solid var(--border);">${isSelected ? '<span class="badge badge-blue">선택</span>' : ''}</td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  ` : '<div style="text-align:center; padding:20px; color:var(--text-light);">등록된 내역이 없습니다.</div>';
+
+  // 필터 적용
+  let items = [...allItems];
+  const filterType = document.getElementById('cb-filter').value;
+
+  if (filterMonth) items = items.filter(i => i.date && i.date.startsWith(filterMonth));
+  if (filterType !== 'all') items = items.filter(i => i.type === filterType);
+
+  const totalIncome = items.filter(i => i.type === 'income').reduce((s, i) => s + (i.amount || 0), 0);
+  const totalExpense = items.filter(i => i.type === 'expense').reduce((s, i) => s + (i.amount || 0), 0);
+
+  const statsLabel = filterMonth ? (filterMonth.replace('-', '년 ') + '월') : '전체';
+  document.getElementById('cashbook-stats').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">${statsLabel} 입금</div>
+      <div class="stat-value" style="color:var(--primary)">${fmt(totalIncome)}원</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">${statsLabel} 출금</div>
+      <div class="stat-value" style="color:var(--danger)">${fmt(totalExpense)}원</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">${statsLabel} 잔액</div>
+      <div class="stat-value" style="color:${totalIncome - totalExpense >= 0 ? 'var(--primary)' : 'var(--danger)'}">${fmt(totalIncome - totalExpense)}원</div>
+    </div>
+  `;
+
+  // 달별 그룹
+  const groups = {};
+  items.forEach(i => {
+    const month = (i.date || '').slice(0, 7) || '날짜없음';
+    if (!groups[month]) groups[month] = [];
+    groups[month].push(i);
+  });
+  const months = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+  document.getElementById('cashbook-list').innerHTML = months.map(month => {
+    const list = groups[month];
+    const mIncome = list.filter(i => i.type === 'income').reduce((s, i) => s + (i.amount || 0), 0);
+    const mExpense = list.filter(i => i.type === 'expense').reduce((s, i) => s + (i.amount || 0), 0);
+    const label = month === '날짜없음' ? '날짜 없음' : month.replace('-', '년 ') + '월';
+
+    // 카테고리별 소계
+    const catTotals = {};
+    list.filter(i => i.type === 'expense').forEach(i => {
+      catTotals[i.category] = (catTotals[i.category] || 0) + (i.amount || 0);
+    });
+    const catSummary = Object.entries(catTotals).map(([cat, amt]) => `${cat}: ${fmt(amt)}원`).join(' | ');
+
+    const rowsHtml = list.map(i => `
+      <div style="display:flex; align-items:center; padding:10px 16px; border:1px solid var(--border); border-radius:6px; margin-bottom:4px; gap:12px;">
+        <div style="width:90px; font-size:13px; color:var(--text-light);">${i.date}</div>
+        <div style="width:50px;">
+          <span class="badge ${i.type === 'income' ? 'badge-blue' : 'badge-green'}" style="${i.type === 'expense' ? 'background:#fee2e2;color:#dc2626;' : ''}">${i.type === 'income' ? '입금' : '출금'}</span>
+        </div>
+        <div style="width:80px; font-size:13px; font-weight:600;">${i.category}</div>
+        <div style="flex:1; font-size:13px;">${i.memo || ''}</div>
+        <div style="width:120px; text-align:right; font-weight:700; color:${i.type === 'income' ? 'var(--primary)' : 'var(--danger)'};">${i.type === 'income' ? '+' : '-'}${fmt(i.amount)}원</div>
+        <div style="display:flex; gap:4px;">
+          <button class="btn btn-outline btn-sm" onclick="editCashbook('${i.id}')">수정</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCashbook('${i.id}')">삭제</button>
+        </div>
+      </div>
+    `).join('');
+
+    return `
+      <div style="margin-bottom:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--primary); color:white; border-radius:8px; margin-bottom:8px;">
+          <div style="font-weight:700; font-size:16px;">${label}</div>
+          <div style="text-align:right; font-size:13px;">
+            <div>입금: +${fmt(mIncome)}원 / 출금: -${fmt(mExpense)}원</div>
+            <div style="font-size:10px; opacity:0.8; margin-top:2px;">${catSummary}</div>
+          </div>
+        </div>
+        ${rowsHtml}
+      </div>
+    `;
+  }).join('') || '<div style="text-align:center; padding:40px; color:var(--text-light)">등록된 내역이 없습니다.</div>';
+}
+
+// ============================================================
+// Worklog (일일 업무일지)
+// ============================================================
+async function saveWorklog() {
+  const editId = document.getElementById('wl-edit-id').value;
+  const data = {
+    date: document.getElementById('wl-date').value,
+    location: document.getElementById('wl-location').value.trim(),
+    customer: document.getElementById('wl-customer').value.trim(),
+    model: document.getElementById('wl-model').value.trim(),
+    contact: document.getElementById('wl-contact').value.trim(),
+    symptom: document.getElementById('wl-symptom').value.trim(),
+    inspection: document.getElementById('wl-inspection').value.trim(),
+    done: document.getElementById('wl-done').value,
+    paid: document.getElementById('wl-paid').value,
+    payMethod: document.getElementById('wl-pay-method').value,
+    partsCost: parseNum(document.getElementById('wl-parts-cost').value),
+    partsAmount: parseNum(document.getElementById('wl-parts-amount').value),
+    laborAmount: parseNum(document.getElementById('wl-labor-amount').value),
+    payAmount: (function() {
+      const s = parseNum(document.getElementById('wl-parts-amount').value) + parseNum(document.getElementById('wl-labor-amount').value);
+      const m = document.getElementById('wl-pay-method').value;
+      return (m === '카드' || m === '계산서') ? s + Math.round(s * 0.1) : s;
+    })(),
+    vat: (function() {
+      const s = parseNum(document.getElementById('wl-parts-amount').value) + parseNum(document.getElementById('wl-labor-amount').value);
+      const m = document.getElementById('wl-pay-method').value;
+      return (m === '카드' || m === '계산서') ? Math.round(s * 0.1) : 0;
+    })(),
+    note: document.getElementById('wl-note').value.trim(),
+    updatedAt: new Date().toISOString()
+  };
+  if (!data.date) { showToast('날짜를 선택하세요.'); return; }
+  if (!data.customer) { showToast('고객이름을 입력하세요.'); return; }
+
+  if (editId) {
+    const existing = await dbGetOne('worklog', editId);
+    data.id = existing.id;
+    data.createdAt = existing.createdAt;
+    await dbPut('worklog', data);
+    document.getElementById('wl-edit-id').value = '';
+    showToast('수정되었습니다.', 'success');
+  } else {
+    data.createdAt = new Date().toISOString();
+    await dbAdd('worklog', data);
+    showToast('등록되었습니다.', 'success');
+  }
+  clearWorklogForm();
+  renderWorklog();
+}
+
+function clearWorklogForm() {
+  document.getElementById('wl-date').value = today();
+  document.getElementById('wl-location').value = '';
+  document.getElementById('wl-customer').value = '';
+  document.getElementById('wl-model').value = '';
+  document.getElementById('wl-contact').value = '';
+  document.getElementById('wl-symptom').value = '';
+  document.getElementById('wl-inspection').value = '';
+  document.getElementById('wl-done').value = '미완료';
+  document.getElementById('wl-paid').value = '미결제';
+  document.getElementById('wl-pay-method').value = '';
+  document.getElementById('wl-parts-cost').value = '';
+  document.getElementById('wl-parts-amount').value = '';
+  document.getElementById('wl-labor-amount').value = '';
+  document.getElementById('wl-pay-amount').value = '';
+  document.getElementById('wl-note').value = '';
+  document.getElementById('wl-edit-id').value = '';
+}
+
+function clearWorklogFilter() {
+  document.getElementById('wl-search').value = '';
+  document.getElementById('wl-filter-month').value = '';
+  document.getElementById('wl-filter-done').value = 'all';
+  document.getElementById('wl-filter-paid').value = 'all';
+  renderWorklog();
+}
+
+async function editWorklog(id) {
+  const w = await dbGetOne('worklog', id);
+  document.getElementById('wl-edit-id').value = w.id;
+  document.getElementById('wl-date').value = w.date;
+  document.getElementById('wl-location').value = w.location || '';
+  document.getElementById('wl-customer').value = w.customer;
+  document.getElementById('wl-model').value = w.model || '';
+  document.getElementById('wl-contact').value = w.contact || '';
+  document.getElementById('wl-symptom').value = w.symptom || '';
+  document.getElementById('wl-inspection').value = w.inspection || '';
+  document.getElementById('wl-done').value = w.done || '미완료';
+  document.getElementById('wl-paid').value = w.paid || '미결제';
+  document.getElementById('wl-pay-method').value = w.payMethod || '';
+  document.getElementById('wl-parts-cost').value = w.partsCost || '';
+  document.getElementById('wl-parts-amount').value = w.partsAmount || '';
+  document.getElementById('wl-labor-amount').value = w.laborAmount || '';
+  document.getElementById('wl-pay-amount').value = w.payAmount ? fmt(w.payAmount) : '';
+  document.getElementById('wl-note').value = w.note || '';
+  window.scrollTo(0, 0);
+}
+
+async function deleteWorklog(id) {
+  if (!confirm('이 업무를 삭제하시겠습니까?')) return;
+  await dbDelete('worklog', id);
+  showToast('삭제되었습니다.');
+  renderWorklog();
+}
+
+function calcWorklogTotal() {
+  const parts = parseNum(document.getElementById('wl-parts-amount').value);
+  const labor = parseNum(document.getElementById('wl-labor-amount').value);
+  const supply = parts + labor;
+  const method = document.getElementById('wl-pay-method').value;
+  const vatApplied = (method === '카드' || method === '계산서');
+  const vat = vatApplied ? Math.round(supply * 0.1) : 0;
+  const total = supply + vat;
+  document.getElementById('wl-pay-amount').value = total ? fmt(total) : '';
+  const vatLabel = document.getElementById('wl-vat-display');
+  if (vatLabel) {
+    vatLabel.style.display = vatApplied && supply ? 'block' : 'none';
+    vatLabel.textContent = vatApplied && supply ? '(공급 ' + fmt(supply) + ' + 부가세 ' + fmt(vat) + ')' : '';
+  }
+}
+
+async function toggleWorklogDone(id) {
+  const w = await dbGetOne('worklog', id);
+  w.done = w.done === '완료' ? '미완료' : '완료';
+  w.updatedAt = new Date().toISOString();
+  await dbPut('worklog', w);
+  renderWorklog();
+}
+
+async function toggleWorklogPaid(id) {
+  const w = await dbGetOne('worklog', id);
+  w.paid = w.paid === '결제완료' ? '미결제' : '결제완료';
+  w.updatedAt = new Date().toISOString();
+  await dbPut('worklog', w);
+  renderWorklog();
+}
+
+// Worklog customer autocomplete
+(function() {
+  const input = document.getElementById('wl-customer');
+  const list = document.getElementById('wl-customer-autocomplete');
+  let allCusts = [];
+  let allWorklog = [];
+
+  async function refresh() {
+    allCusts = await dbGet('customers');
+    allCusts.sort((a, b) => (b.tradeCount || 0) - (a.tradeCount || 0));
+    allWorklog = await dbGet('worklog');
+    allWorklog.sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id);
+  }
+
+  function getContactStr(c) {
+    if (c.contacts && c.contacts.length > 0) {
+      const first = c.contacts.find(ct => ct.phone);
+      if (first) return first.phone;
+    }
+    return c.phone || '';
+  }
+
+  function findLastWorklog(customerName) {
+    return allWorklog.find(w => w.customer === customerName);
+  }
+
+  function show(items) {
+    if (!items.length) { list.classList.remove('show'); return; }
+    list.innerHTML = items.map(c => {
+      const contact = getContactStr(c);
+      const lastWl = findLastWorklog(c.name);
+      const modelHint = lastWl && lastWl.model ? ' | ' + lastWl.model : '';
+      return `
+        <div class="autocomplete-item" data-id="${c.id}">
+          <div>${c.name}${modelHint ? '<span style="color:var(--primary);font-size:12px;">' + modelHint + '</span>' : ''}</div>
+          <div class="sub">${c.representative || ''} ${contact ? '| ' + contact : ''}</div>
+        </div>`;
+    }).join('');
+    list.classList.add('show');
+    list.querySelectorAll('.autocomplete-item').forEach(item => {
+      item.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const c = allCusts.find(x => String(x.id) === item.dataset.id);
+        if (c) {
+          input.value = c.name;
+          const lastWl = findLastWorklog(c.name);
+          if (lastWl) {
+            if (lastWl.model) document.getElementById('wl-model').value = lastWl.model;
+            if (lastWl.contact) document.getElementById('wl-contact').value = lastWl.contact;
+            else document.getElementById('wl-contact').value = getContactStr(c);
+          } else {
+            document.getElementById('wl-contact').value = getContactStr(c);
+          }
+        }
+        list.classList.remove('show');
+      });
+    });
+  }
+
+  input.addEventListener('focus', async () => {
+    await refresh();
+    const val = normalize(input.value.trim());
+    show(val ? allCusts.filter(c => normalize(c.name).includes(val)) : allCusts);
+  });
+
+  input.addEventListener('input', () => {
+    const val = normalize(input.value.trim());
+    show(val ? allCusts.filter(c => normalize(c.name).includes(val)) : allCusts);
+  });
+
+  input.addEventListener('blur', () => {
+    setTimeout(() => list.classList.remove('show'), 200);
+  });
+})();
+
+async function renderWorklog() {
+  let items = await dbGet('worklog');
+  items.sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id);
+
+  const search = normalize(document.getElementById('wl-search').value || '');
+  const filterMonth = document.getElementById('wl-filter-month').value;
+  const filterDone = document.getElementById('wl-filter-done').value;
+  const filterPaid = document.getElementById('wl-filter-paid').value;
+
+  if (search) {
+    items = items.filter(w =>
+      normalize(w.customer).includes(search) ||
+      normalize(w.model || '').includes(search) ||
+      normalize(w.symptom || '').includes(search) ||
+      normalize(w.inspection || '').includes(search) ||
+      normalize(w.location || '').includes(search)
+    );
+  }
+  if (filterMonth) items = items.filter(w => (w.date || '').startsWith(filterMonth));
+  if (filterDone !== 'all') items = items.filter(w => w.done === filterDone);
+  if (filterPaid !== 'all') items = items.filter(w => w.paid === filterPaid);
+
+  const todayStr = today();
+  const todayItems = items.filter(w => w.date === todayStr);
+  const totalDone = items.filter(w => w.done === '완료').length;
+  const totalUndone = items.filter(w => w.done === '미완료').length;
+  const totalUnpaid = items.filter(w => w.paid === '미결제').length;
+
+  const paidItems = items.filter(w => w.payAmount > 0);
+  const totalPayAmount = paidItems.reduce((s, w) => s + (w.payAmount || 0), 0);
+  const totalPartsCost = items.reduce((s, w) => s + (w.partsCost || 0), 0);
+  const totalParts = items.reduce((s, w) => s + (w.partsAmount || 0), 0);
+  const totalLabor = items.reduce((s, w) => s + (w.laborAmount || 0), 0);
+  const totalVat = items.reduce((s, w) => s + (w.vat || 0), 0);
+  const partsMargin = totalParts - totalPartsCost;
+  const cashTotal = paidItems.filter(w => w.payMethod === '현금').reduce((s, w) => s + (w.payAmount || 0), 0);
+  const cardTotal = paidItems.filter(w => w.payMethod === '카드').reduce((s, w) => s + (w.payAmount || 0), 0);
+  const invoiceTotal = paidItems.filter(w => w.payMethod === '계산서').reduce((s, w) => s + (w.payAmount || 0), 0);
+  const transferTotal = paidItems.filter(w => w.payMethod === '계좌이체').reduce((s, w) => s + (w.payAmount || 0), 0);
+
+  const isFilterUndone = filterDone === '미완료';
+  const isFilterUnpaid = filterPaid === '미결제';
+
+  document.getElementById('worklog-stats').innerHTML = `
+    <div class="stat-card" style="cursor:pointer;" onclick="document.getElementById('wl-filter-month').value='${todayStr.slice(0,7)}';renderWorklog();">
+      <div class="stat-label">오늘 업무</div>
+      <div class="stat-value">${todayItems.length}건</div>
+    </div>
+    <div class="stat-card" style="cursor:pointer;" onclick="document.getElementById('wl-filter-done').value='완료';renderWorklog();">
+      <div class="stat-label">완료</div>
+      <div class="stat-value" style="color:var(--success)">${totalDone}건</div>
+    </div>
+    <div class="stat-card" style="cursor:pointer;${isFilterUndone ? 'border:2px solid #f59e0b;background:#fffbeb;' : ''}" onclick="filterWorklogStat('done')">
+      <div class="stat-label">미완료</div>
+      <div class="stat-value" style="color:var(--warning)">${totalUndone}건</div>
+    </div>
+    <div class="stat-card" style="cursor:pointer;${isFilterUnpaid ? 'border:2px solid #dc2626;background:#fef2f2;' : ''}" onclick="filterWorklogStat('paid')">
+      <div class="stat-label">미결제</div>
+      <div class="stat-value" style="color:var(--danger)">${totalUnpaid}건</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">부품 원가</div>
+      <div class="stat-value" style="color:#9333ea">${fmt(totalPartsCost)}원</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">부품 청구</div>
+      <div class="stat-value" style="color:#7c3aed">${fmt(totalParts)}원</div>
+      <div style="font-size:11px; margin-top:4px; color:${partsMargin >= 0 ? 'var(--success)' : 'var(--danger)'}">마진 ${partsMargin >= 0 ? '+' : ''}${fmt(partsMargin)}원</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">수리비</div>
+      <div class="stat-value" style="color:#0891b2">${fmt(totalLabor)}원</div>
+    </div>
+    ${totalVat ? `<div class="stat-card">
+      <div class="stat-label">부가세 (카드/계산서)</div>
+      <div class="stat-value" style="color:#e67700">${fmt(totalVat)}원</div>
+    </div>` : ''}
+    <div class="stat-card">
+      <div class="stat-label">순수익 (청구합계-원가)</div>
+      <div class="stat-value" style="color:${(totalPayAmount - totalPartsCost) >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmt(totalPayAmount - totalPartsCost)}원</div>
+    </div>
+    <div class="stat-card" style="cursor:pointer;" onclick="showPaymentSummary()">
+      <div class="stat-label">결제 합계 (클릭)</div>
+      <div class="stat-value" style="color:var(--primary)">${fmt(totalPayAmount)}원</div>
+      <div style="font-size:11px; color:var(--text-light); margin-top:4px;">
+        ${cashTotal ? '현금 ' + fmt(cashTotal) + ' ' : ''}${cardTotal ? '카드 ' + fmt(cardTotal) + ' ' : ''}${invoiceTotal ? '계산서 ' + fmt(invoiceTotal) + ' ' : ''}${transferTotal ? '이체 ' + fmt(transferTotal) : ''}
+      </div>
+    </div>
+  `;
+
+  // 미완료/미결제 현황 패널
+  const allData = await dbGet('worklog');
+  const undoneList = allData.filter(w => w.done === '미완료').sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const unpaidList = allData.filter(w => w.paid === '미결제').sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+  document.getElementById('worklog-alert-panel').innerHTML = (undoneList.length || unpaidList.length) ? `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+      ${undoneList.length ? `
+      <div class="card" style="border-left:4px solid #f59e0b; margin-bottom:0;">
+        <div style="font-weight:700; font-size:15px; color:#b45309; margin-bottom:10px;">미완료 ${undoneList.length}건</div>
+        ${undoneList.map(w => `
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; margin-bottom:4px; background:#fffbeb; border-radius:6px; font-size:13px; cursor:pointer;" onclick="viewWorklog('${w.id}')">
+            <div><strong style="color:var(--primary);text-decoration:underline;">${w.customer}</strong> <span style="color:var(--text-light);">${w.model || ''}</span></div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="color:var(--text-light); font-size:12px;">${w.date}</span>
+              <span class="badge" style="background:#fef3c7;color:#b45309;cursor:pointer;" onclick="event.stopPropagation();toggleWorklogDone('${w.id}')">완료처리</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>` : '<div></div>'}
+      ${unpaidList.length ? `
+      <div class="card" style="border-left:4px solid #dc2626; margin-bottom:0;">
+        <div style="font-weight:700; font-size:15px; color:#dc2626; margin-bottom:10px;">미결제 ${unpaidList.length}건</div>
+        ${unpaidList.map(w => `
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; margin-bottom:4px; background:#fef2f2; border-radius:6px; font-size:13px; cursor:pointer;" onclick="viewWorklog('${w.id}')">
+            <div><strong style="color:var(--primary);text-decoration:underline;">${w.customer}</strong> <span style="color:var(--text-light);">${w.model || ''}</span></div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="color:var(--text-light); font-size:12px;">${w.date}</span>
+              <span class="badge" style="background:#fee2e2;color:#dc2626;cursor:pointer;" onclick="event.stopPropagation();toggleWorklogPaid('${w.id}')">결제처리</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>` : '<div></div>'}
+    </div>
+  ` : '';
+
+  // 월별 그룹핑
+  const months = {};
+  items.forEach(w => {
+    const m = (w.date || '').slice(0, 7) || '날짜없음';
+    if (!months[m]) months[m] = [];
+    months[m].push(w);
+  });
+  const monthKeys = Object.keys(months).sort((a, b) => b.localeCompare(a));
+  const curMonth = today().slice(0, 7);
+
+  if (!monthKeys.length) {
+    document.getElementById('worklog-list').innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light)">등록된 업무가 없습니다.</div>';
+    return;
+  }
+
+  document.getElementById('worklog-list').innerHTML = monthKeys.map(m => {
+    const mItems = months[m];
+    const mUndone = mItems.filter(w => w.done === '미완료').length;
+    const mUnpaid = mItems.filter(w => w.paid === '미결제').length;
+    const mTotal = mItems.reduce((s, w) => s + (w.payAmount || 0), 0);
+    const isOpen = m === curMonth || filterMonth === m;
+    return `
+    <div class="card" style="margin-bottom:12px; padding:0; overflow:hidden;">
+      <div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'; this.querySelector('.chevron').textContent=this.nextElementSibling.style.display==='none'?'▶':'▼'" style="display:flex; align-items:center; justify-content:space-between; padding:14px 20px; cursor:pointer; background:#f8fafc; border-bottom:1px solid var(--border);">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span class="chevron" style="font-size:12px; color:var(--text-light);">${isOpen ? '▼' : '▶'}</span>
+          <span style="font-weight:700; font-size:16px;">${m}</span>
+          <span style="color:var(--text-light); font-size:13px;">${mItems.length}건</span>
+          ${mUndone ? `<span class="badge" style="background:#fef3c7;color:#b45309;">미완료 ${mUndone}</span>` : ''}
+          ${mUnpaid ? `<span class="badge" style="background:#fee2e2;color:#dc2626;">미결제 ${mUnpaid}</span>` : ''}
+        </div>
+        <div style="font-weight:700; color:var(--primary);">${fmt(mTotal)}원</div>
+      </div>
+      <div style="display:${isOpen ? 'block' : 'none'};">
+        <table style="margin:0;">
+          <thead><tr>
+            <th>날짜</th><th>고객</th><th>모델</th><th>증상</th>
+            <th class="text-center">완료</th><th class="text-center">결제</th>
+            <th class="text-right">청구합계</th><th class="text-center">관리</th>
+          </tr></thead>
+          <tbody>${mItems.map(w => {
+            let rowBg = '';
+            if (w.done === '미완료' && w.paid === '미결제') rowBg = 'background:#fef2f2;';
+            else if (w.done === '미완료') rowBg = 'background:#fffbeb;';
+            else if (w.paid === '미결제') rowBg = 'background:#fef2f2;';
+            else rowBg = 'background:#f0fdf4;';
+            const symptomShort = (w.symptom || '-').length > 15 ? (w.symptom || '').slice(0, 15) + '...' : (w.symptom || '-');
+            return `<tr style="${rowBg}cursor:pointer;" onclick="viewWorklog('${w.id}')">
+              <td style="white-space:nowrap">${(w.date||'').slice(5)}</td>
+              <td><strong>${w.customer}</strong>${w.location ? '<div style=font-size:11px;color:var(--text-light)>' + w.location + '</div>' : ''}</td>
+              <td>${w.model || '-'}</td>
+              <td style="font-size:13px;">${symptomShort}</td>
+              <td class="text-center" onclick="event.stopPropagation()">
+                <span class="badge ${w.done === '완료' ? 'badge-green' : 'badge-blue'}" style="cursor:pointer;padding:4px 12px;${w.done === '미완료' ? 'background:#fef3c7;color:#b45309;' : ''}" onclick="toggleWorklogDone('${w.id}')">${w.done}</span>
+              </td>
+              <td class="text-center" onclick="event.stopPropagation()">
+                <span class="badge ${w.paid === '결제완료' ? 'badge-green' : 'badge-blue'}" style="cursor:pointer;padding:4px 12px;${w.paid === '미결제' ? 'background:#fee2e2;color:#dc2626;' : ''}" onclick="toggleWorklogPaid('${w.id}')">${w.paid}</span>
+              </td>
+              <td class="text-right" style="font-weight:700;white-space:nowrap;">${w.payAmount ? fmt(w.payAmount) + '원' : '-'}</td>
+              <td class="text-center" style="white-space:nowrap" onclick="event.stopPropagation()">
+                <button class="btn btn-outline btn-sm" onclick="editWorklog('${w.id}')">수정</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteWorklog('${w.id}')">삭제</button>
+              </td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function viewWorklog(id) {
+  const w = await dbGetOne('worklog', id);
+  if (!w) return;
+  const supply = (w.partsAmount || 0) + (w.laborAmount || 0);
+  showModal(`
+    <div class="modal-title">업무 상세</div>
+    <div style="display:grid; grid-template-columns:100px 1fr; gap:8px 16px; font-size:14px; margin-bottom:16px;">
+      <div style="font-weight:600; color:var(--text-light);">날짜</div><div>${w.date}</div>
+      <div style="font-weight:600; color:var(--text-light);">장소</div><div>${w.location || '-'}</div>
+      <div style="font-weight:600; color:var(--text-light);">고객이름</div><div><strong>${w.customer}</strong></div>
+      <div style="font-weight:600; color:var(--text-light);">보유모델</div><div>${w.model || '-'}</div>
+      <div style="font-weight:600; color:var(--text-light);">연락처</div><div>${w.contact || '-'}</div>
+      <div style="font-weight:600; color:var(--text-light);">증상</div><div>${w.symptom || '-'}</div>
+      <div style="font-weight:600; color:var(--text-light);">점검사항</div><div>${w.inspection || '-'}</div>
+      <div style="font-weight:600; color:var(--text-light);">완료</div><div><span class="badge ${w.done === '완료' ? 'badge-green' : ''}" style="${w.done === '미완료' ? 'background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;' : ''}">${w.done}</span></div>
+      <div style="font-weight:600; color:var(--text-light);">결제</div><div><span class="badge ${w.paid === '결제완료' ? 'badge-green' : ''}" style="${w.paid === '미결제' ? 'background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;' : ''}">${w.paid}</span></div>
+      <div style="font-weight:600; color:var(--text-light);">결제수단</div><div>${w.payMethod || '-'}</div>
+      <div style="font-weight:600; color:var(--text-light);">비고</div><div>${w.note || '-'}</div>
+    </div>
+    <div style="background:#f8fafc; border-radius:8px; padding:16px; margin-bottom:16px;">
+      <div style="display:flex; gap:12px; flex-wrap:wrap; text-align:center;">
+        <div style="flex:1; min-width:80px;">
+          <div style="font-size:11px; color:#9333ea; font-weight:600;">부품원가</div>
+          <div style="font-size:18px; font-weight:700; color:#9333ea;">${w.partsCost ? fmt(w.partsCost) : '-'}</div>
+        </div>
+        <div style="flex:1; min-width:80px;">
+          <div style="font-size:11px; color:#7c3aed; font-weight:600;">부품청구</div>
+          <div style="font-size:18px; font-weight:700; color:#7c3aed;">${w.partsAmount ? fmt(w.partsAmount) : '-'}</div>
+        </div>
+        <div style="flex:1; min-width:80px;">
+          <div style="font-size:11px; color:#0891b2; font-weight:600;">수리비</div>
+          <div style="font-size:18px; font-weight:700; color:#0891b2;">${w.laborAmount ? fmt(w.laborAmount) : '-'}</div>
+        </div>
+        ${w.vat ? `<div style="flex:1; min-width:80px;">
+          <div style="font-size:11px; color:#e67700; font-weight:600;">부가세</div>
+          <div style="font-size:18px; font-weight:700; color:#e67700;">${fmt(w.vat)}</div>
+        </div>` : ''}
+        <div style="flex:1; min-width:80px;">
+          <div style="font-size:11px; color:var(--primary); font-weight:600;">청구합계</div>
+          <div style="font-size:22px; font-weight:700; color:var(--primary);">${w.payAmount ? fmt(w.payAmount) + '원' : '-'}</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="editWorklog('${w.id}');closeModal();">수정</button>
+      <button class="btn btn-sm" style="cursor:pointer;padding:4px 12px;${w.done === '미완료' ? 'background:#fef3c7;color:#b45309;' : 'background:#dcfce7;color:#16a34a;'}" onclick="toggleWorklogDone('${w.id}');closeModal();">${w.done === '미완료' ? '완료처리' : '미완료로'}</button>
+      <button class="btn btn-sm" style="cursor:pointer;padding:4px 12px;${w.paid === '미결제' ? 'background:#fee2e2;color:#dc2626;' : 'background:#dcfce7;color:#16a34a;'}" onclick="toggleWorklogPaid('${w.id}');closeModal();">${w.paid === '미결제' ? '결제처리' : '미결제로'}</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteWorklog('${w.id}');closeModal();">삭제</button>
+      <button class="btn btn-outline" onclick="closeModal()">닫기</button>
+    </div>
+  `);
+}
+
+async function showPaymentSummary() {
+  let items = await dbGet('worklog');
+  const filterMonth = document.getElementById('wl-filter-month').value;
+  const filterDone = document.getElementById('wl-filter-done').value;
+  const filterPaid = document.getElementById('wl-filter-paid').value;
+  const search = normalize(document.getElementById('wl-search').value || '');
+
+  if (search) {
+    items = items.filter(w =>
+      normalize(w.customer).includes(search) || normalize(w.model || '').includes(search) ||
+      normalize(w.symptom || '').includes(search) || normalize(w.location || '').includes(search)
+    );
+  }
+  if (filterMonth) items = items.filter(w => (w.date || '').startsWith(filterMonth));
+  if (filterDone !== 'all') items = items.filter(w => w.done === filterDone);
+  if (filterPaid !== 'all') items = items.filter(w => w.paid === filterPaid);
+
+  const paid = items.filter(w => w.payAmount > 0);
+  const methods = ['현금', '카드', '계산서', '계좌이체'];
+  const colors = { '현금': '#16a34a', '카드': '#2563eb', '계산서': '#9333ea', '계좌이체': '#0891b2' };
+  const totalAll = paid.reduce((s, w) => s + (w.payAmount || 0), 0);
+  const allPartsCost = paid.reduce((s, w) => s + (w.partsCost || 0), 0);
+  const allParts = paid.reduce((s, w) => s + (w.partsAmount || 0), 0);
+  const allLabor = paid.reduce((s, w) => s + (w.laborAmount || 0), 0);
+  const allVat = paid.reduce((s, w) => s + (w.vat || 0), 0);
+  const mPartsMargin = allParts - allPartsCost;
+  const mNetProfit = totalAll - allPartsCost;
+
+  let html = `<div class="modal-title">결제 수단별 현황</div>`;
+  html += `
+    <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:120px; text-align:center; padding:12px; background:#f3e8ff; border-radius:8px;">
+        <div style="font-size:11px; color:#9333ea; font-weight:600;">부품 원가</div>
+        <div style="font-size:20px; font-weight:700; color:#9333ea;">${fmt(allPartsCost)}원</div>
+      </div>
+      <div style="flex:1; min-width:120px; text-align:center; padding:12px; background:#ede9fe; border-radius:8px;">
+        <div style="font-size:11px; color:#7c3aed; font-weight:600;">부품 청구</div>
+        <div style="font-size:20px; font-weight:700; color:#7c3aed;">${fmt(allParts)}원</div>
+        <div style="font-size:11px; color:${mPartsMargin >= 0 ? '#16a34a' : '#dc2626'};">마진 ${mPartsMargin >= 0 ? '+' : ''}${fmt(mPartsMargin)}원</div>
+      </div>
+      <div style="flex:1; min-width:120px; text-align:center; padding:12px; background:#ecfeff; border-radius:8px;">
+        <div style="font-size:11px; color:#0891b2; font-weight:600;">수리비</div>
+        <div style="font-size:20px; font-weight:700; color:#0891b2;">${fmt(allLabor)}원</div>
+      </div>
+      ${allVat ? `<div style="flex:1; min-width:120px; text-align:center; padding:12px; background:#fff7ed; border-radius:8px;">
+        <div style="font-size:11px; color:#e67700; font-weight:600;">부가세</div>
+        <div style="font-size:20px; font-weight:700; color:#e67700;">${fmt(allVat)}원</div>
+      </div>` : ''}
+      <div style="flex:1; min-width:120px; text-align:center; padding:12px; background:#eff6ff; border-radius:8px;">
+        <div style="font-size:11px; color:var(--primary); font-weight:600;">청구 합계</div>
+        <div style="font-size:20px; font-weight:700; color:var(--primary);">${fmt(totalAll)}원</div>
+      </div>
+      <div style="flex:1; min-width:120px; text-align:center; padding:12px; background:${mNetProfit >= 0 ? '#f0fdf4' : '#fef2f2'}; border-radius:8px; border:2px solid ${mNetProfit >= 0 ? '#16a34a' : '#dc2626'};">
+        <div style="font-size:11px; color:${mNetProfit >= 0 ? '#16a34a' : '#dc2626'}; font-weight:600;">순수익 (청구-원가)</div>
+        <div style="font-size:20px; font-weight:700; color:${mNetProfit >= 0 ? '#16a34a' : '#dc2626'};">${fmt(mNetProfit)}원</div>
+      </div>
+    </div>`;
+
+  methods.forEach(m => {
+    const list = paid.filter(w => w.payMethod === m).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const mTotal = list.reduce((s, w) => s + (w.payAmount || 0), 0);
+    if (!list.length) return;
+
+    html += `
+      <div style="margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:${colors[m]}; color:white; border-radius:8px; font-weight:700;">
+          <span>${m} (${list.length}건)</span>
+          <span>${fmt(mTotal)}원</span>
+        </div>
+        <table style="width:100%; border-collapse:collapse; margin-top:4px;">
+          <thead><tr>
+            <th style="padding:6px 8px; font-size:11px; border-bottom:2px solid var(--border); text-align:left;">날짜</th>
+            <th style="padding:6px 8px; font-size:11px; border-bottom:2px solid var(--border); text-align:left;">고객</th>
+            <th style="padding:6px 8px; font-size:11px; border-bottom:2px solid var(--border); text-align:left;">모델</th>
+            <th style="padding:6px 8px; font-size:11px; border-bottom:2px solid var(--border); text-align:right; color:#9333ea;">부품원가</th>
+            <th style="padding:6px 8px; font-size:11px; border-bottom:2px solid var(--border); text-align:right; color:#7c3aed;">부품청구</th>
+            <th style="padding:6px 8px; font-size:11px; border-bottom:2px solid var(--border); text-align:right; color:#0891b2;">수리비</th>
+            <th style="padding:6px 8px; font-size:11px; border-bottom:2px solid var(--border); text-align:right; color:#e67700;">부가세</th>
+            <th style="padding:6px 8px; font-size:11px; border-bottom:2px solid var(--border); text-align:right;">청구합계</th>
+          </tr></thead>
+          <tbody>${list.map(w => `
+            <tr>
+              <td style="padding:5px 8px; border-bottom:1px solid var(--border); font-size:13px;">${w.date}</td>
+              <td style="padding:5px 8px; border-bottom:1px solid var(--border); font-size:13px;">${w.customer}</td>
+              <td style="padding:5px 8px; border-bottom:1px solid var(--border); font-size:13px;">${w.model || '-'}</td>
+              <td style="padding:5px 8px; border-bottom:1px solid var(--border); font-size:13px; text-align:right; color:#9333ea;">${w.partsCost ? fmt(w.partsCost) : '-'}</td>
+              <td style="padding:5px 8px; border-bottom:1px solid var(--border); font-size:13px; text-align:right; color:#7c3aed;">${w.partsAmount ? fmt(w.partsAmount) : '-'}</td>
+              <td style="padding:5px 8px; border-bottom:1px solid var(--border); font-size:13px; text-align:right; color:#0891b2;">${w.laborAmount ? fmt(w.laborAmount) : '-'}</td>
+              <td style="padding:5px 8px; border-bottom:1px solid var(--border); font-size:13px; text-align:right; color:#e67700;">${w.vat ? fmt(w.vat) : '-'}</td>
+              <td style="padding:5px 8px; border-bottom:1px solid var(--border); font-size:13px; text-align:right; font-weight:600;">${fmt(w.payAmount)}원</td>
+            </tr>
+          `).join('')}</tbody>
+        </table>
+      </div>`;
+  });
+
+  const noMethod = paid.filter(w => !w.payMethod);
+  if (noMethod.length) {
+    const nmTotal = noMethod.reduce((s, w) => s + (w.payAmount || 0), 0);
+    html += `
+      <div style="margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#6b7280; color:white; border-radius:8px; font-weight:700;">
+          <span>수단 미지정 (${noMethod.length}건)</span>
+          <span>${fmt(nmTotal)}원</span>
+        </div>
+        <table style="width:100%; border-collapse:collapse; margin-top:4px;">
+          <tbody>${noMethod.map(w => `
+            <tr>
+              <td style="padding:5px 8px; border-bottom:1px solid var(--border); font-size:13px;">${w.date}</td>
+              <td style="padding:5px 8px; border-bottom:1px solid var(--border); font-size:13px;">${w.customer}</td>
+              <td style="padding:5px 8px; border-bottom:1px solid var(--border); font-size:13px;">${w.model || '-'}</td>
+              <td style="padding:5px 8px; border-bottom:1px solid var(--border); font-size:13px; text-align:right; color:#9333ea;">${w.partsCost ? fmt(w.partsCost) : '-'}</td>
+              <td style="padding:5px 8px; border-bottom:1px solid var(--border); font-size:13px; text-align:right; color:#7c3aed;">${w.partsAmount ? fmt(w.partsAmount) : '-'}</td>
+              <td style="padding:5px 8px; border-bottom:1px solid var(--border); font-size:13px; text-align:right; color:#0891b2;">${w.laborAmount ? fmt(w.laborAmount) : '-'}</td>
+              <td style="padding:5px 8px; border-bottom:1px solid var(--border); font-size:13px; text-align:right; color:#e67700;">${w.vat ? fmt(w.vat) : '-'}</td>
+              <td style="padding:5px 8px; border-bottom:1px solid var(--border); font-size:13px; text-align:right; font-weight:600;">${fmt(w.payAmount)}원</td>
+            </tr>
+          `).join('')}</tbody>
+        </table>
+      </div>`;
+  }
+
+  html += `<div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">닫기</button></div>`;
+  showModal(html);
+}
+
+function filterWorklogStat(type) {
+  if (type === 'done') {
+    const sel = document.getElementById('wl-filter-done');
+    sel.value = sel.value === '미완료' ? 'all' : '미완료';
+  } else {
+    const sel = document.getElementById('wl-filter-paid');
+    sel.value = sel.value === '미결제' ? 'all' : '미결제';
+  }
+  renderWorklog();
+}
+
+// ============================================================
 // Initialize
 // ============================================================
 async function init() {
@@ -1692,6 +2767,9 @@ async function init() {
   await loadSettings();
   await loadEmailSettings();
   document.getElementById('stmt-date').value = today();
+  document.getElementById('cb-date').value = today();
+  document.getElementById('wl-date').value = today();
+  document.getElementById('cb-type').value = 'expense';
   const num = await generateNumber();
   document.getElementById('stmt-number').value = num;
   for (let i = 0; i < 5; i++) addItemRow();
