@@ -96,6 +96,9 @@ tr:hover { background: #f8fafc; }
 .stmt-table .btn-remove { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 16px; padding: 4px; }
 .stmt-table .btn-remove:hover { background: #fee2e2; border-radius: 4px; }
 
+/* Mobile item cards (hidden on desktop) */
+.stmt-items-mobile { display: none; }
+
 /* Summary */
 .summary-row { display: flex; justify-content: flex-end; gap: 24px; margin-top: 16px; padding: 16px; background: #f1f5f9; border-radius: 8px; }
 .summary-item { text-align: right; }
@@ -193,8 +196,17 @@ tr:hover { background: #f8fafc; }
   .modal-title { font-size: 16px; }
 
   .btn-lg { padding: 10px 18px; font-size: 14px; }
-  .stmt-table { font-size: 12px; }
-  .stmt-table input { padding: 4px 6px; font-size: 12px; }
+  .stmt-table { display: none; }
+  .stmt-items-mobile { display: block; }
+  .mobile-item-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fafbfc; position: relative; }
+  .mobile-item-card .mobile-row-num { position: absolute; top: 8px; left: 12px; font-size: 11px; color: var(--text-light); font-weight: 700; }
+  .mobile-item-card .btn-remove-mobile { position: absolute; top: 6px; right: 8px; background: none; border: none; color: var(--danger); font-size: 20px; cursor: pointer; padding: 4px; }
+  .mobile-item-card .mobile-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+  .mobile-item-card .mobile-field { display: flex; flex-direction: column; gap: 2px; }
+  .mobile-item-card .mobile-field.full { grid-column: 1 / -1; }
+  .mobile-item-card .mobile-field label { font-size: 11px; color: var(--text-light); font-weight: 600; }
+  .mobile-item-card .mobile-field input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; font-family: inherit; }
+  .mobile-item-card .mobile-field input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
 
   .stat-card { padding: 14px; }
   .stat-card .stat-value { font-size: 20px; }
@@ -261,6 +273,7 @@ tr:hover { background: #f8fafc; }
         </thead>
         <tbody id="stmt-items"></tbody>
       </table>
+      <div id="stmt-items-mobile" class="stmt-items-mobile"></div>
       <div style="margin-top:8px">
         <button class="btn btn-outline btn-sm" onclick="addItemRow()">+ 행 추가</button>
       </div>
@@ -1088,12 +1101,17 @@ let itemRowCount = 0;
 
 function addItemRow(data) {
   itemRowCount++;
+  const rowId = itemRowCount;
   const tbody = document.getElementById('stmt-items');
-  const tr = document.createElement('tr');
-  tr.dataset.row = itemRowCount;
+  const mobileContainer = document.getElementById('stmt-items-mobile');
+  const rowNum = tbody.children.length + 1;
   const d = data || {};
+
+  // Desktop table row
+  const tr = document.createElement('tr');
+  tr.dataset.row = rowId;
   tr.innerHTML = `
-    <td class="row-num">${tbody.children.length + 1}</td>
+    <td class="row-num">${rowNum}</td>
     <td><input type="text" value="${d.partNo || ''}" class="partno-input" placeholder="품번"></td>
     <td class="autocomplete-wrapper">
       <input type="text" value="${d.name || ''}" class="name-input" placeholder="품명 입력..." autocomplete="off">
@@ -1107,15 +1125,100 @@ function addItemRow(data) {
     <td><input type="text" value="${d.note || ''}" class="note-input" placeholder="비고"></td>
     <td><button class="btn-remove" onclick="removeRow(this)">&times;</button></td>
   `;
-
   tbody.appendChild(tr);
 
-  const nameInput = tr.querySelector('.name-input');
-  const acList = tr.querySelector('.autocomplete-list');
-  setupItemAutocomplete(nameInput, acList, tr);
+  // Mobile card
+  const card = document.createElement('div');
+  card.className = 'mobile-item-card';
+  card.dataset.row = rowId;
+  card.innerHTML = `
+    <span class="mobile-row-num">#${rowNum}</span>
+    <button class="btn-remove-mobile" onclick="removeRowMobile(this)">&times;</button>
+    <div class="mobile-fields">
+      <div class="mobile-field full autocomplete-wrapper">
+        <label>품명</label>
+        <input type="text" value="${d.name || ''}" class="m-name-input" placeholder="품명 입력..." autocomplete="off">
+        <div class="autocomplete-list"></div>
+      </div>
+      <div class="mobile-field">
+        <label>품번</label>
+        <input type="text" value="${d.partNo || ''}" class="m-partno-input" placeholder="품번">
+      </div>
+      <div class="mobile-field">
+        <label>규격</label>
+        <input type="text" value="${d.spec || ''}" class="m-spec-input" placeholder="규격">
+      </div>
+      <div class="mobile-field">
+        <label>단위</label>
+        <input type="text" value="${d.unit || 'EA'}" class="m-unit-input">
+      </div>
+      <div class="mobile-field">
+        <label>수량</label>
+        <input type="number" value="${d.qty || 1}" class="m-qty-input" min="1">
+      </div>
+      <div class="mobile-field">
+        <label>단가</label>
+        <input type="text" value="${d.price ? fmt(d.price) : ''}" class="m-price-input" placeholder="단가">
+      </div>
+      <div class="mobile-field">
+        <label>금액</label>
+        <input type="text" value="${d.amount ? fmt(d.amount) : ''}" class="m-amount-input" readonly style="background:#f1f5f9;font-weight:600">
+      </div>
+      <div class="mobile-field">
+        <label>비고</label>
+        <input type="text" value="${d.note || ''}" class="m-note-input" placeholder="비고">
+      </div>
+    </div>
+  `;
+  mobileContainer.appendChild(card);
 
-  tr.querySelector('.qty-input').addEventListener('input', () => calcRow(tr));
-  tr.querySelector('.price-input').addEventListener('input', () => calcRow(tr));
+  // Sync: desktop inputs ↔ mobile inputs
+  const fieldMap = [
+    ['partno-input', 'm-partno-input'],
+    ['name-input', 'm-name-input'],
+    ['spec-input', 'm-spec-input'],
+    ['unit-input', 'm-unit-input'],
+    ['qty-input', 'm-qty-input'],
+    ['price-input', 'm-price-input'],
+    ['note-input', 'm-note-input'],
+  ];
+  fieldMap.forEach(([dCls, mCls]) => {
+    const dInput = tr.querySelector('.' + dCls);
+    const mInput = card.querySelector('.' + mCls);
+    dInput.addEventListener('input', () => { mInput.value = dInput.value; });
+    mInput.addEventListener('input', () => { dInput.value = mInput.value; });
+  });
+
+  // Mobile qty/price → calc
+  const mQty = card.querySelector('.m-qty-input');
+  const mPrice = card.querySelector('.m-price-input');
+  const mAmount = card.querySelector('.m-amount-input');
+  function calcMobile() {
+    const q = parseInt(mQty.value) || 0;
+    const p = parseNum(mPrice.value);
+    const a = q * p;
+    mAmount.value = a ? fmt(a) : '';
+    tr.querySelector('.qty-input').value = mQty.value;
+    tr.querySelector('.price-input').value = mPrice.value;
+    calcRow(tr);
+  }
+  mQty.addEventListener('input', calcMobile);
+  mPrice.addEventListener('input', calcMobile);
+  mPrice.addEventListener('focus', function() { this.value = this.value.replace(/,/g, ''); });
+  mPrice.addEventListener('blur', function() {
+    const v = parseNum(this.value);
+    if (v) this.value = fmt(v);
+  });
+
+  // Desktop calc → sync to mobile amount
+  const origCalcRow = () => {
+    calcRow(tr);
+    mAmount.value = tr.querySelector('.amount-input').value;
+    mQty.value = tr.querySelector('.qty-input').value;
+    mPrice.value = tr.querySelector('.price-input').value;
+  };
+  tr.querySelector('.qty-input').addEventListener('input', origCalcRow);
+  tr.querySelector('.price-input').addEventListener('input', origCalcRow);
   tr.querySelector('.price-input').addEventListener('focus', function() {
     this.value = this.value.replace(/,/g, '');
   });
@@ -1124,13 +1227,48 @@ function addItemRow(data) {
     if (v) this.value = fmt(v);
   });
 
-  if (!data) nameInput.focus();
+  // Autocomplete on desktop
+  const nameInput = tr.querySelector('.name-input');
+  const acList = tr.querySelector('.autocomplete-list');
+  setupItemAutocomplete(nameInput, acList, tr);
+
+  // Autocomplete on mobile
+  const mNameInput = card.querySelector('.m-name-input');
+  const mAcList = card.querySelector('.autocomplete-list');
+  setupItemAutocomplete(mNameInput, mAcList, tr, card);
+
+  if (!data) {
+    if (window.innerWidth <= 768) mNameInput.focus();
+    else nameInput.focus();
+  }
   return tr;
 }
 
-function removeRow(btn) {
-  btn.closest('tr').remove();
+function removeRowMobile(btn) {
+  const card = btn.closest('.mobile-item-card');
+  const rowId = card.dataset.row;
+  card.remove();
+  const tr = document.querySelector(`#stmt-items tr[data-row="${rowId}"]`);
+  if (tr) tr.remove();
   renumberRows();
+  renumberMobileCards();
+  calcTotals();
+}
+
+function renumberMobileCards() {
+  document.querySelectorAll('#stmt-items-mobile .mobile-item-card').forEach((card, i) => {
+    card.querySelector('.mobile-row-num').textContent = '#' + (i + 1);
+  });
+}
+
+function removeRow(btn) {
+  const tr = btn.closest('tr');
+  const rowId = tr.dataset.row;
+  tr.remove();
+  const card = document.querySelector(`#stmt-items-mobile .mobile-item-card[data-row="${rowId}"]`);
+  if (card) card.remove();
+  renumberRows();
+  renumberMobileCards();
   calcTotals();
 }
 
@@ -1162,7 +1300,7 @@ function calcTotals() {
 // ============================================================
 // Item Autocomplete in Statement
 // ============================================================
-function setupItemAutocomplete(input, list, row) {
+function setupItemAutocomplete(input, list, row, mobileCard) {
   let allItems = [];
 
   input.addEventListener('focus', async () => {
@@ -1192,13 +1330,27 @@ function setupItemAutocomplete(input, list, row) {
         const id = Number(item.dataset.id);
         const sel = allItems.find(x => x.id === id);
         if (sel) {
+          const priceStr = fmt(sel.lastPrice || sel.defaultPrice);
           row.querySelector('.partno-input').value = sel.partNo || '';
+          row.querySelector('.name-input').value = sel.name;
           input.value = sel.name;
           row.querySelector('.spec-input').value = sel.spec || '';
           row.querySelector('.unit-input').value = sel.unit || 'EA';
-          row.querySelector('.price-input').value = fmt(sel.lastPrice || sel.defaultPrice);
+          row.querySelector('.price-input').value = priceStr;
           row.dataset.itemId = sel.id;
           calcRow(row);
+          // Sync to mobile card
+          const mc = mobileCard || document.querySelector(`#stmt-items-mobile .mobile-item-card[data-row="${row.dataset.row}"]`);
+          if (mc) {
+            mc.querySelector('.m-partno-input').value = sel.partNo || '';
+            mc.querySelector('.m-name-input').value = sel.name;
+            mc.querySelector('.m-spec-input').value = sel.spec || '';
+            mc.querySelector('.m-unit-input').value = sel.unit || 'EA';
+            mc.querySelector('.m-price-input').value = priceStr;
+            const q = parseInt(mc.querySelector('.m-qty-input').value) || 0;
+            const p = sel.lastPrice || sel.defaultPrice;
+            mc.querySelector('.m-amount-input').value = q * p ? fmt(q * p) : '';
+          }
         }
         list.classList.remove('show');
       });
@@ -1396,6 +1548,8 @@ async function resetForm() {
   document.getElementById('stmt-customer-id').value = '';
   document.getElementById('stmt-date').value = today();
   document.getElementById('stmt-items').innerHTML = '';
+  document.getElementById('stmt-items-mobile').innerHTML = '';
+  itemRowCount = 0;
   const num = await generateNumber();
   document.getElementById('stmt-number').value = num;
   for (let i = 0; i < 5; i++) addItemRow();
@@ -1711,6 +1865,8 @@ async function editStatement(id) {
   document.getElementById('stmt-customer-id').value = s.customerId || '';
 
   document.getElementById('stmt-items').innerHTML = '';
+  document.getElementById('stmt-items-mobile').innerHTML = '';
+  itemRowCount = 0;
   s.items.forEach(item => addItemRow(item));
   calcTotals();
 }
