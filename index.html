@@ -167,6 +167,7 @@ tr:hover { background: #f8fafc; }
 
 /* Responsive */
 @media (max-width: 768px) {
+  html, body { overflow-x: hidden; max-width: 100vw; }
   .form-row { flex-direction: column; }
   .nav-brand { padding: 10px 16px; font-size: 14px; border-right: none; width: 100%; flex: 1; }
   .nav-toggle { display: block; }
@@ -197,16 +198,17 @@ tr:hover { background: #f8fafc; }
 
   .btn-lg { padding: 10px 18px; font-size: 14px; }
   .stmt-table { display: none; }
-  .stmt-items-mobile { display: block; }
-  .mobile-item-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fafbfc; position: relative; }
+  .stmt-items-mobile { display: block; overflow: hidden; }
+  .mobile-item-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fafbfc; position: relative; overflow: hidden; box-sizing: border-box; }
   .mobile-item-card .mobile-row-num { position: absolute; top: 8px; left: 12px; font-size: 11px; color: var(--text-light); font-weight: 700; }
   .mobile-item-card .btn-remove-mobile { position: absolute; top: 6px; right: 8px; background: none; border: none; color: var(--danger); font-size: 20px; cursor: pointer; padding: 4px; }
   .mobile-item-card .mobile-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
-  .mobile-item-card .mobile-field { display: flex; flex-direction: column; gap: 2px; }
+  .mobile-item-card .mobile-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .mobile-item-card .mobile-field.full { grid-column: 1 / -1; }
   .mobile-item-card .mobile-field label { font-size: 11px; color: var(--text-light); font-weight: 600; }
-  .mobile-item-card .mobile-field input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; font-family: inherit; }
+  .mobile-item-card .mobile-field input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; font-family: inherit; width: 100%; min-width: 0; box-sizing: border-box; }
   .mobile-item-card .mobile-field input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
+  .mobile-item-card .mobile-field input[readonly] { background: #f1f5f9; color: var(--primary); font-weight: 600; }
 
   .stat-card { padding: 14px; }
   .stat-card .stat-value { font-size: 20px; }
