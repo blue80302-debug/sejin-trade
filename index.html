@@ -2682,16 +2682,20 @@ async function renderWorklog() {
 
   const todayStr = today();
   const todayItems = items.filter(w => w.date === todayStr);
-  const totalDone = items.filter(w => w.done === '완료').length;
-  const totalUndone = items.filter(w => w.done === '미완료').length;
-  const totalUnpaid = items.filter(w => w.paid === '미결제').length;
 
-  const paidItems = items.filter(w => w.payAmount > 0);
+  const statsMonth = filterMonth || todayStr.slice(0, 7);
+  const statsItems = items.filter(w => (w.date || '').startsWith(statsMonth));
+  const totalDone = statsItems.filter(w => w.done === '완료').length;
+  const totalUndone = statsItems.filter(w => w.done === '미완료').length;
+  const totalUnpaid = statsItems.filter(w => w.paid === '미결제').length;
+  const statsLabel = statsMonth.replace('-', '년 ') + '월';
+
+  const paidItems = statsItems.filter(w => w.payAmount > 0);
   const totalPayAmount = paidItems.reduce((s, w) => s + (w.payAmount || 0), 0);
-  const totalPartsCost = items.reduce((s, w) => s + (w.partsCost || 0), 0);
-  const totalParts = items.reduce((s, w) => s + (w.partsAmount || 0), 0);
-  const totalLabor = items.reduce((s, w) => s + (w.laborAmount || 0), 0);
-  const totalVat = items.reduce((s, w) => s + (w.vat || 0), 0);
+  const totalPartsCost = statsItems.reduce((s, w) => s + (w.partsCost || 0), 0);
+  const totalParts = statsItems.reduce((s, w) => s + (w.partsAmount || 0), 0);
+  const totalLabor = statsItems.reduce((s, w) => s + (w.laborAmount || 0), 0);
+  const totalVat = statsItems.reduce((s, w) => s + (w.vat || 0), 0);
   const partsMargin = totalParts - totalPartsCost;
   const cashTotal = paidItems.filter(w => w.payMethod === '현금').reduce((s, w) => s + (w.payAmount || 0), 0);
   const cardTotal = paidItems.filter(w => w.payMethod === '카드').reduce((s, w) => s + (w.payAmount || 0), 0);
@@ -2701,7 +2705,19 @@ async function renderWorklog() {
   const isFilterUndone = filterDone === '미완료';
   const isFilterUnpaid = filterPaid === '미결제';
 
+  const prevMonth = new Date(statsMonth + '-01');
+  prevMonth.setMonth(prevMonth.getMonth() - 1);
+  const prevM = prevMonth.toISOString().slice(0, 7);
+  const nextMonth = new Date(statsMonth + '-01');
+  nextMonth.setMonth(nextMonth.getMonth() + 1);
+  const nextM = nextMonth.toISOString().slice(0, 7);
+
   document.getElementById('worklog-stats').innerHTML = `
+    <div style="grid-column:1/-1; display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:4px;">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('wl-filter-month').value='${prevM}';renderWorklog();" style="padding:4px 10px;">◀</button>
+      <span style="font-weight:700; font-size:16px; color:var(--primary);">${statsLabel} 수익 현황</span>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('wl-filter-month').value='${nextM}';renderWorklog();" style="padding:4px 10px;">▶</button>
+    </div>
     <div class="stat-card" style="cursor:pointer;" onclick="document.getElementById('wl-filter-month').value='${todayStr.slice(0,7)}';renderWorklog();">
       <div class="stat-label">오늘 업무</div>
       <div class="stat-value">${todayItems.length}건</div>
